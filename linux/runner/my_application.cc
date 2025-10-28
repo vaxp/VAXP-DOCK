@@ -1,11 +1,17 @@
 #include "my_application.h"
 
 #include <flutter_linux/flutter_linux.h>
-#ifdef GDK_WINDOWING_X11
-#include <gdk/gdkx.h>
-#endif
-
 #include "flutter/generated_plugin_registrant.h"
+
+// 1. إضافة المكتبات اللازمة لـ X11
+#ifdef GDK_WINDOWING_X11
+// يجب تغليف مكتبات C بـ extern "C" عند استخدام C++
+extern "C" {
+  #include <gdk/gdkx.h>
+  #include <X11/Xlib.h>
+  #include <X11/Xatom.h> // لإدارة الـ Atoms
+}
+#endif
 
 struct _MyApplication {
   GtkApplication parent_instance;
@@ -35,34 +41,60 @@ static void my_application_activate(GApplication* application) {
   }
 #endif
 
+  // Get display and monitor information using modern GDK API
+  GdkDisplay* display = gtk_widget_get_display(window_widget);
+  GdkMonitor* primary_monitor = gdk_display_get_primary_monitor(display);
+  GdkRectangle monitor_geometry;
+  gdk_monitor_get_geometry(primary_monitor, &monitor_geometry);
 
-  // Use a header bar when running in GNOME as this is the common style used
-  // by applications and is the setup most users will be using (e.g. Ubuntu
-  // desktop).
-  // If running on X and not using GNOME then just use a traditional title bar
-  // in case the window manager does more exotic layout, e.g. tiling.
-  // If running on Wayland assume the header bar will work (may need changing
-  // if future cases occur).
-  gboolean use_header_bar = TRUE;
+  // Set window dimensions with scaling factor
+  GdkMonitor* monitor = gdk_display_get_primary_monitor(display);
+  double scale_factor = gdk_monitor_get_scale_factor(monitor);
+  int window_height = 50 * scale_factor;  // Account for HiDPI scaling
+  int window_width = monitor_geometry.width;
+  gtk_window_set_default_size(window, window_width, window_height);
+  
+  // Force the window size
+  gtk_widget_set_size_request(window_widget, window_width, window_height);
+
+  // Set window properties
+  gtk_window_set_keep_above(window, TRUE);
+  gtk_window_set_decorated(window, FALSE);
+  gtk_window_stick(window);
+
+  // "تحقيق" النافذة (Realize)
+  // يجب أن نفعل هذا الآن لنحصل على معرّف X11 (XID)
+  gtk_widget_realize(window_widget);
+
+  // Position the window 20 pixels above the bottom of the screen
+  gtk_window_move(window, 0, monitor_geometry.height - window_height - 20);
+
+
 #ifdef GDK_WINDOWING_X11
-  if (GDK_IS_X11_SCREEN(screen)) {
-    const gchar* wm_name = gdk_x11_screen_get_window_manager_name(screen);
-    if (g_strcmp0(wm_name, "GNOME Shell") != 0) {
-      use_header_bar = FALSE;
-    }
+  GdkWindow* gdk_window = gtk_widget_get_window(window_widget);
+  if (GDK_IS_X11_WINDOW(gdk_window)) {
+    Display* xdisplay = GDK_DISPLAY_XDISPLAY(display);
+    Window xid = GDK_WINDOW_XID(gdk_window);
+
+    // Set window type to DOCK
+    ::Atom type_atom = ::XInternAtom(xdisplay, "_NET_WM_WINDOW_TYPE", False);
+    ::Atom dock_atom = ::XInternAtom(xdisplay, "_NET_WM_WINDOW_TYPE_DOCK", False);
+    ::XChangeProperty(xdisplay, xid, type_atom, XA_ATOM, 32, PropModeReplace,
+                    reinterpret_cast<unsigned char*>(&dock_atom), 1);
+
+    // Reserve space at bottom of screen
+    ::Atom strut_atom = ::XInternAtom(xdisplay, "_NET_WM_STRUT_PARTIAL", False);
+    // Ensure struts use the scaled height plus 20px gap
+    long strut[12] = {0, 0, 0, static_cast<long>(window_height + 20),
+                      0, 0, 0, 0,
+                      0, static_cast<long>(window_width), 0, 0};
+    ::XChangeProperty(xdisplay, xid, strut_atom, XA_CARDINAL, 32, PropModeReplace,
+                    reinterpret_cast<unsigned char*>(strut), 12);
+
+    ::XFlush(xdisplay);
   }
 #endif
-  if (use_header_bar) {
-    GtkHeaderBar* header_bar = GTK_HEADER_BAR(gtk_header_bar_new());
-    gtk_widget_show(GTK_WIDGET(header_bar));
-    gtk_header_bar_set_title(header_bar, "testapp");
-    gtk_header_bar_set_show_close_button(header_bar, TRUE);
-    gtk_window_set_titlebar(window, GTK_WIDGET(header_bar));
-  } else {
-    gtk_window_set_title(window, "testapp");
-  }
-
-  gtk_window_set_default_size(window, 3000, 720);
+  // --- نهاية التعديلات
 
   g_autoptr(FlDartProject) project = fl_dart_project_new();
   fl_dart_project_set_dart_entrypoint_arguments(project, self->dart_entrypoint_arguments);
@@ -76,9 +108,8 @@ static void my_application_activate(GApplication* application) {
   gtk_container_add(GTK_CONTAINER(window), GTK_WIDGET(view));
 
   // Show the window when Flutter renders.
-  // Requires the view to be realized so we can start rendering.
   g_signal_connect_swapped(view, "first-frame", G_CALLBACK(first_frame_cb), self);
-  gtk_widget_realize(GTK_WIDGET(view));
+  // gtk_widget_realize(GTK_WIDGET(view)); // <-- تم نقله للأعلى
 
   fl_register_plugins(FL_PLUGIN_REGISTRY(view));
 

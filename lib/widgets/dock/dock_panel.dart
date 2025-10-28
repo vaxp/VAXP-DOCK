@@ -49,15 +49,15 @@ class _DockPanelState extends State<DockPanel> {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 31.0),
+      padding: const EdgeInsets.only(bottom: 0.0),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(
               color: Colors.black.withOpacity(0.3),
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(6),
               border: Border.all(
                 width: 1,
               ),
@@ -73,7 +73,7 @@ class _DockPanelState extends State<DockPanel> {
                 // Separator
                 Container(
                   width: 1,
-                  height: 33,
+                  height: 42,
                   margin: const EdgeInsets.symmetric(horizontal: 8),
                   decoration: BoxDecoration(
                     color: Colors.white.withOpacity(0.2),
@@ -92,8 +92,8 @@ class _DockPanelState extends State<DockPanel> {
                             child: DockIcon(
                               customChild: SvgPicture.file(
                                 File(entry.value.iconPath!),
-                                width: 30,
-                                height: 30,
+                                width: 42,
+                                height: 42,
                               ),
                               tooltip: entry.value.name,
                               onTap: () => widget.onLaunch(entry.value),
@@ -134,7 +134,7 @@ class _DockPanelState extends State<DockPanel> {
                 // Right side utilities separator
                 Container(
                   width: 1,
-                  height: 36,
+                  height: 42,
                   margin: const EdgeInsets.symmetric(horizontal: 8),
                   decoration: BoxDecoration(
                     color: Colors.white.withOpacity(0.2),

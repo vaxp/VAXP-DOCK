@@ -14,6 +14,7 @@ dependencies:
     path: ../vaxp_core
   file_picker:
   cupertino_icons: ^1.0.8
+  window_manager: ^0.3.8
 
 dev_dependencies:
   flutter_test:

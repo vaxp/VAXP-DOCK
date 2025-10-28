@@ -65,8 +65,8 @@ class _DockIconState extends State<DockIcon> with SingleTickerProviderStateMixin
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Container(
-                      width:40,
-                      height: 28,
+                      width: 40,
+                      height: 40,
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(4),
                         color: widget.iconData != null ? null : Colors.transparent,
@@ -81,27 +81,27 @@ class _DockIconState extends State<DockIcon> with SingleTickerProviderStateMixin
                                   borderRadius: BorderRadius.circular(4),
                                   child: Image(
                                     image: widget.iconData!,
-                                    width:28,
-                                    height: 28,
+                                    width: 40,
+                                    height: 40,
                                     fit: BoxFit.cover,
                                   ),
                                 )
                               : Icon(
                                   widget.icon ?? Icons.apps,
-                                  size: 28,
+                                  size: 40,
                                   color: Colors.white.withOpacity(0.9),
                                 ),
                     ),
                     // Running indicator dot
-                    Container(
-                      margin: const EdgeInsets.only(top: 5),
-                      width: 5,
-                      height: 5,
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.8),
-                        shape: BoxShape.circle,
-                      ),
-                    ),
+                    // Container(
+                    //   margin: const EdgeInsets.only(top: 5),
+                    //   width: 5,
+                    //   height: 5,
+                    //   decoration: BoxDecoration(
+                    //     color: Colors.white.withOpacity(0.8),
+                    //     shape: BoxShape.circle,
+                    //   ),
+                    // ),
                   ],
                 ),
               );

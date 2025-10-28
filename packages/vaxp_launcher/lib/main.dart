@@ -126,7 +126,7 @@ class _LauncherHomeState extends State<LauncherHome> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Could not pin ${entry.name}: Make sure the VAXP Dock is running'),
-          duration: const Duration(seconds: 4),
+          duration: const Duration(seconds: 1),
           action: SnackBarAction(
             label: 'Launch Dock',
             onPressed: () async {
