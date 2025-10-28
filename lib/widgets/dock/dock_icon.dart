@@ -65,38 +65,38 @@ class _DockIconState extends State<DockIcon> with SingleTickerProviderStateMixin
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Container(
-                      width: 48,
-                      height: 48,
+                      width:40,
+                      height: 28,
                       decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(10),
+                        borderRadius: BorderRadius.circular(4),
                         color: widget.iconData != null ? null : Colors.transparent,
                       ),
                       child: widget.customChild != null
                           ? ClipRRect(
-                              borderRadius: BorderRadius.circular(10),
+                              borderRadius: BorderRadius.circular(4),
                               child: widget.customChild!,
                             )
                           : widget.iconData != null
                               ? ClipRRect(
-                                  borderRadius: BorderRadius.circular(10),
+                                  borderRadius: BorderRadius.circular(4),
                                   child: Image(
                                     image: widget.iconData!,
-                                    width: 48,
-                                    height: 48,
+                                    width:28,
+                                    height: 28,
                                     fit: BoxFit.cover,
                                   ),
                                 )
                               : Icon(
                                   widget.icon ?? Icons.apps,
-                                  size: 48,
+                                  size: 28,
                                   color: Colors.white.withOpacity(0.9),
                                 ),
                     ),
                     // Running indicator dot
                     Container(
-                      margin: const EdgeInsets.only(top: 4),
-                      width: 4,
-                      height: 4,
+                      margin: const EdgeInsets.only(top: 5),
+                      width: 5,
+                      height: 5,
                       decoration: BoxDecoration(
                         color: Colors.white.withOpacity(0.8),
                         shape: BoxShape.circle,

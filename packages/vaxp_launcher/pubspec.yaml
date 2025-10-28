@@ -1,5 +1,5 @@
-name: vaxp_dock
-description: "VAXP Linux Dock"
+name: vaxp_launcher
+description: "VAXP Application Launcher"
 publish_to: 'none'
 version: 1.0.0+1
 
@@ -11,7 +11,7 @@ dependencies:
     sdk: flutter
   flutter_svg: ^2.0.9
   vaxp_core:
-    path: packages/vaxp_core
+    path: ../vaxp_core
   file_picker:
   cupertino_icons: ^1.0.8
 

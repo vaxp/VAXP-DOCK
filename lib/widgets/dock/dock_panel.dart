@@ -1,16 +1,22 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import '../../models/desktop_entry.dart';
+import 'package:vaxp_core/models/desktop_entry.dart';
+import 'package:vaxp_core/services/dock_service.dart';
 import 'dock_icon.dart';
-import '../app_launcher/app_grid.dart';
 
 class DockPanel extends StatefulWidget {
   final Function(DesktopEntry) onLaunch;
+  final VoidCallback onShowLauncher;
+  final List<DesktopEntry> pinnedApps;
+  final Function(String) onUnpin;
   
   const DockPanel({
     super.key,
     required this.onLaunch,
+    required this.onShowLauncher,
+    required this.pinnedApps,
+    required this.onUnpin,
   });
 
   @override
@@ -18,54 +24,7 @@ class DockPanel extends StatefulWidget {
 }
 
 class _DockPanelState extends State<DockPanel> {
-  late Future<List<DesktopEntry>> _allAppsFuture;
-  List<DesktopEntry> _pinned = [];
-  bool _isAppGridOpen = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _allAppsFuture = DesktopEntry.loadAll();
-    _loadPinnedApps();
-  }
-
-  Future<void> _loadPinnedApps() async {
-    final apps = await _allAppsFuture;
-    if (!mounted) return;
-    setState(() {
-      _pinned = apps.take(6).toList();
-    });
-  }
-
-  void _openAppGrid(List<DesktopEntry> apps) async {
-    setState(() {
-      _isAppGridOpen = true;
-    });
-    
-    await showDialog<void>(
-      context: context,
-      barrierColor: Colors.black38,
-      builder: (ctx) => Dialog(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        child: SizedBox(
-          width: 1200,
-          height: 900,
-          child: AppGrid(
-            apps: apps,
-            onLaunch: widget.onLaunch,
-            onPin: _pinToDock,
-          ),
-        ),
-      ),
-    );
-    
-    setState(() {
-      _isAppGridOpen = false;
-    });
-  }
-
-  void _showDockIconMenu(BuildContext context, TapUpDetails details, int index) {
+  void _showDockIconMenu(BuildContext context, TapUpDetails details, DesktopEntry entry) {
     final RenderBox overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
     final position = RelativeRect.fromRect(
       Rect.fromPoints(
@@ -81,42 +40,25 @@ class _DockPanelState extends State<DockPanel> {
       items: [
         PopupMenuItem(
           child: const Text('Unpin from dock'),
-          onTap: () {
-            setState(() {
-              _pinned.removeAt(index);
-            });
-          },
+          onTap: () => widget.onUnpin(entry.name),
         ),
       ],
     );
   }
 
-  void _pinToDock(DesktopEntry entry) {
-    if (_pinned.length < 10 && !_pinned.any((e) => e.name == entry.name)) {
-      setState(() {
-        _pinned.add(entry);
-      });
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
-    if (_isAppGridOpen) {
-      return const SizedBox.shrink();
-    }
-
     return Padding(
-      padding: const EdgeInsets.only(bottom: 24.0),
+      padding: const EdgeInsets.only(bottom: 31.0),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             decoration: BoxDecoration(
               color: Colors.black.withOpacity(0.3),
-              borderRadius: BorderRadius.circular(28),
+              borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color: Colors.white.withOpacity(0.1),
                 width: 1,
               ),
             ),
@@ -126,15 +68,12 @@ class _DockPanelState extends State<DockPanel> {
                 DockIcon(
                   icon: Icons.apps,
                   tooltip: 'Show all apps',
-                  onTap: () async {
-                    final apps = await _allAppsFuture;
-                    _openAppGrid(apps);
-                  },
+                  onTap: widget.onShowLauncher,
                 ),
                 // Separator
                 Container(
                   width: 1,
-                  height: 32,
+                  height: 33,
                   margin: const EdgeInsets.symmetric(horizontal: 8),
                   decoration: BoxDecoration(
                     color: Colors.white.withOpacity(0.2),
@@ -142,19 +81,19 @@ class _DockPanelState extends State<DockPanel> {
                   ),
                 ),
                 // Pinned apps
-                if (_pinned.isNotEmpty)
-                  ..._pinned.asMap().entries.expand(
+                if (widget.pinnedApps.isNotEmpty)
+                  ...widget.pinnedApps.asMap().entries.expand(
                     (entry) {
                       if (entry.value.iconPath != null) {
                         Widget icon;
                         if (entry.value.isSvgIcon) {
                           icon = GestureDetector(
-                            onSecondaryTapUp: (details) => _showDockIconMenu(context, details, entry.key),
+                            onSecondaryTapUp: (details) => _showDockIconMenu(context, details, entry.value),
                             child: DockIcon(
                               customChild: SvgPicture.file(
                                 File(entry.value.iconPath!),
-                                width: 48,
-                                height: 48,
+                                width: 30,
+                                height: 30,
                               ),
                               tooltip: entry.value.name,
                               onTap: () => widget.onLaunch(entry.value),
@@ -163,7 +102,7 @@ class _DockPanelState extends State<DockPanel> {
                           );
                         } else {
                           icon = GestureDetector(
-                            onSecondaryTapUp: (details) => _showDockIconMenu(context, details, entry.key),
+                            onSecondaryTapUp: (details) => _showDockIconMenu(context, details, entry.value),
                             child: DockIcon(
                               iconData: FileImage(File(entry.value.iconPath!)),
                               tooltip: entry.value.name,
@@ -174,12 +113,12 @@ class _DockPanelState extends State<DockPanel> {
                         }
                         return [
                           icon,
-                          if (entry.key < _pinned.length - 1) const SizedBox(width: 4),
+                          if (entry.key < widget.pinnedApps.length - 1) const SizedBox(width: 4),
                         ];
                       } else {
                         return [
                           GestureDetector(
-                            onSecondaryTapUp: (details) => _showDockIconMenu(context, details, entry.key),
+                            onSecondaryTapUp: (details) => _showDockIconMenu(context, details, entry.value),
                             child: DockIcon(
                               icon: Icons.apps,
                               tooltip: entry.value.name,
@@ -187,7 +126,7 @@ class _DockPanelState extends State<DockPanel> {
                               name: entry.value.name,
                             ),
                           ),
-                          if (entry.key < _pinned.length - 1) const SizedBox(width: 4),
+                          if (entry.key < widget.pinnedApps.length - 1) const SizedBox(width: 4),
                         ];
                       }
                     },
@@ -195,7 +134,7 @@ class _DockPanelState extends State<DockPanel> {
                 // Right side utilities separator
                 Container(
                   width: 1,
-                  height: 32,
+                  height: 36,
                   margin: const EdgeInsets.symmetric(horizontal: 8),
                   decoration: BoxDecoration(
                     color: Colors.white.withOpacity(0.2),

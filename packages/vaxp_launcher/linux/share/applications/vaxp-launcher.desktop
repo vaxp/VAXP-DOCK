@@ -1,0 +1,11 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=VAXP Launcher
+Comment=Application launcher for VAXP
+Exec=vaxp-launcher
+Icon=system-run
+Terminal=false
+Categories=Utility;Core;
+Keywords=launcher;applications;apps;
+StartupNotify=true
