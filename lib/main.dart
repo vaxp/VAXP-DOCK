@@ -66,7 +66,7 @@ class _DockHomeState extends State<DockHome> {
     widget.dockService.onPinRequest = _handlePinRequest;
     widget.dockService.onUnpinRequest = _handleUnpinRequest;
     // Ensure Flutter bindings are initialized for shared_preferences
-    WidgetsFlutterBinding.ensured();
+    WidgetsFlutterBinding.ensureInitialized();
     _loadPinnedApps();
   }
 
@@ -75,13 +75,11 @@ class _DockHomeState extends State<DockHome> {
       final prefs = await SharedPreferences.getInstance();
       final pinnedAppsJson = prefs.getStringList('pinnedApps') ?? [];
       
-      setState(() {
-        _pinnedApps = pinnedAppsJson
-            .map((json) => DesktopEntry.fromJson(jsonDecode(json)))
-            .where((entry) => entry != null)
-            .cast<DesktopEntry>()
-            .toList();
-      });
+  setState(() {
+    _pinnedApps = pinnedAppsJson
+    .map((json) => DesktopEntry.fromJson(jsonDecode(json) as Map<String, dynamic>))
+    .toList();
+  });
     } catch (e) {
       debugPrint('Error loading pinned apps: $e');
     }

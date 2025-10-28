@@ -114,4 +114,22 @@ class DesktopEntry {
     );
     return entries;
   }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'name': name,
+      'exec': exec,
+      'iconPath': iconPath,
+      'isSvgIcon': isSvgIcon,
+    };
+  }
+
+  static DesktopEntry fromJson(Map<String, dynamic> json) {
+    return DesktopEntry(
+      name: json['name'] as String? ?? '',
+      exec: json['exec'] as String?,
+      iconPath: json['iconPath'] as String?,
+      isSvgIcon: json['isSvgIcon'] as bool? ?? false,
+    );
+  }
 }

@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:vaxp_core/models/desktop_entry.dart';
 import 'package:vaxp_core/services/dock_service.dart';
