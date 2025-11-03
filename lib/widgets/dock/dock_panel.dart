@@ -8,6 +8,8 @@ import 'dock_icon.dart';
 class DockPanel extends StatefulWidget {
   final Function(DesktopEntry) onLaunch;
   final VoidCallback onShowLauncher;
+  final VoidCallback? onMinimizeLauncher;
+  final VoidCallback? onRestoreLauncher;
   final List<DesktopEntry> pinnedApps;
   final Function(String) onUnpin;
   
@@ -15,6 +17,8 @@ class DockPanel extends StatefulWidget {
     super.key,
     required this.onLaunch,
     required this.onShowLauncher,
+    this.onMinimizeLauncher,
+    this.onRestoreLauncher,
     required this.pinnedApps,
     required this.onUnpin,
   });
@@ -65,10 +69,38 @@ class _DockPanelState extends State<DockPanel> {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                DockIcon(
-                  icon: Icons.apps,
-                  tooltip: 'Show all apps',
-                  onTap: widget.onShowLauncher,
+                GestureDetector(
+                  onSecondaryTapUp: (details) {
+                    final RenderBox overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
+                    final position = RelativeRect.fromRect(
+                      Rect.fromPoints(
+                        details.globalPosition,
+                        details.globalPosition,
+                      ),
+                      Offset.zero & overlay.size,
+                    );
+                    showMenu(
+                      context: context,
+                      position: position,
+                      items: [
+                        if (widget.onMinimizeLauncher != null)
+                          PopupMenuItem(
+                            child: const Text('Minimize Launcher'),
+                            onTap: widget.onMinimizeLauncher,
+                          ),
+                        if (widget.onRestoreLauncher != null)
+                          PopupMenuItem(
+                            child: const Text('Restore Launcher'),
+                            onTap: widget.onRestoreLauncher,
+                          ),
+                      ],
+                    );
+                  },
+                  child: DockIcon(
+                    icon: Icons.apps,
+                    tooltip: 'Show all apps',
+                    onTap: widget.onShowLauncher,
+                  ),
                 ),
                 // Separator
                 Container(

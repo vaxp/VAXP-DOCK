@@ -1,10 +1,15 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:dbus/dbus.dart';
+import 'package:window_manager/window_manager.dart';
 import 'package:vaxp_core/models/desktop_entry.dart';
 import 'package:vaxp_core/services/dock_service.dart';
 import 'widgets/app_grid.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await windowManager.ensureInitialized();
   runApp(const LauncherApp());
 }
 
@@ -41,6 +46,10 @@ class _LauncherHomeState extends State<LauncherHome> {
   List<DesktopEntry> _filteredApps = [];
   bool _isLoading = true;
   late final VaxpDockService _dockService;
+  late final DBusClient _dbusClient;
+  late final DBusRemoteObject _dockRemoteObject;
+  StreamSubscription<DBusSignal>? _minimizeSub;
+  StreamSubscription<DBusSignal>? _restoreSub;
 
   Future<void> _connectToDockService() async {
     const maxRetries = 3;
@@ -72,6 +81,51 @@ class _LauncherHomeState extends State<LauncherHome> {
     _loadApps();
     _dockService = VaxpDockService();
     _connectToDockService();
+    // Start listening for dock signals (minimize/restore)
+    _setupDockSignalListeners();
+  }
+
+  void _setupDockSignalListeners() {
+    try {
+      _dbusClient = DBusClient.session();
+      _dockRemoteObject = DBusRemoteObject(_dbusClient, name: vaxpBusName, path: DBusObjectPath(vaxpObjectPath));
+
+      _minimizeSub = DBusRemoteObjectSignalStream(
+        object: _dockRemoteObject,
+        interface: vaxpInterfaceName,
+        name: 'MinimizeWindow',
+        signature: DBusSignature('s'),
+      ).asBroadcastStream().listen((signal) async {
+        try {
+          final name = (signal.values[0] as DBusString).value;
+          debugPrint('Dock -> MinimizeWindow signal received for: $name');
+          // Received minimize request from dock
+          await windowManager.minimize();
+        } catch (e, st) {
+          debugPrint('Error handling MinimizeWindow signal: $e\n$st');
+        }
+      });
+
+      _restoreSub = DBusRemoteObjectSignalStream(
+        object: _dockRemoteObject,
+        interface: vaxpInterfaceName,
+        name: 'RestoreWindow',
+        signature: DBusSignature('s'),
+      ).asBroadcastStream().listen((signal) async {
+        try {
+          final name = (signal.values[0] as DBusString).value;
+          debugPrint('Dock -> RestoreWindow signal received for: $name');
+          // Received restore request from dock
+          await windowManager.restore();
+          await windowManager.show();
+          await windowManager.focus();
+        } catch (e, st) {
+          debugPrint('Error handling RestoreWindow signal: $e\n$st');
+        }
+      });
+    } catch (e) {
+      debugPrint('Failed to set up dock signal listeners: $e');
+    }
   }
 
   Future<void> _loadApps() async {
@@ -154,6 +208,9 @@ class _LauncherHomeState extends State<LauncherHome> {
   void dispose() {
     _searchController.dispose();
     _dockService.dispose();
+    _minimizeSub?.cancel();
+    _restoreSub?.cancel();
+    _dbusClient.close();
     super.dispose();
   }
 

@@ -40,6 +40,16 @@ class _VaxpDockObject extends DBusObject {
           ),
           DBusIntrospectMethod('ShowLauncher'),
         ],
+        signals: [
+          DBusIntrospectSignal(
+            'MinimizeWindow',
+            args: [DBusIntrospectArgument(DBusSignature('s'), DBusArgumentDirection.out)],
+          ),
+          DBusIntrospectSignal(
+            'RestoreWindow',
+            args: [DBusIntrospectArgument(DBusSignature('s'), DBusArgumentDirection.out)],
+          ),
+        ],
       )
     ];
   }
@@ -163,6 +173,26 @@ class VaxpDockService {
       interface: vaxpInterfaceName,
       name: 'ShowLauncher',
       values: [],
+    );
+  }
+
+  /// Emit a signal requesting the launcher to minimize a window identified by [name].
+  Future<void> emitMinimizeWindow(String name) async {
+    await _client.emitSignal(
+      path: DBusObjectPath(vaxpObjectPath),
+      interface: vaxpInterfaceName,
+      name: 'MinimizeWindow',
+      values: [DBusString(name)],
+    );
+  }
+
+  /// Emit a signal requesting the launcher to restore a window identified by [name].
+  Future<void> emitRestoreWindow(String name) async {
+    await _client.emitSignal(
+      path: DBusObjectPath(vaxpObjectPath),
+      interface: vaxpInterfaceName,
+      name: 'RestoreWindow',
+      values: [DBusString(name)],
     );
   }
 

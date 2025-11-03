@@ -134,12 +134,18 @@ class _DockHomeState extends State<DockHome> {
 
   void _launchLauncher() async {
     try {
-      await Process.start('/bin/sh', ['-c', 'vaxp-launcher']);
+      // Try to signal a running launcher to restore/show itself first.
+      await widget.dockService.emitRestoreWindow('vaxp-launcher');
     } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Failed to launch VAXP Launcher')),
-      );
+      // If signaling failed (no listener / error), try to launch the launcher process.
+      try {
+        await Process.start('/bin/sh', ['-c', 'vaxp-launcher']);
+      } catch (e2) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to launch VAXP Launcher')),
+        );
+      }
     }
   }
 
@@ -166,6 +172,20 @@ class _DockHomeState extends State<DockHome> {
             child: DockPanel(
               onLaunch: _launchEntry,
               onShowLauncher: _launchLauncher,
+              onMinimizeLauncher: () async {
+                try {
+                  await widget.dockService.emitMinimizeWindow('vaxp-launcher');
+                } catch (e) {
+                  debugPrint('Failed to emit minimize signal: $e');
+                }
+              },
+              onRestoreLauncher: () async {
+                try {
+                  await widget.dockService.emitRestoreWindow('vaxp-launcher');
+                } catch (e) {
+                  debugPrint('Failed to emit restore signal: $e');
+                }
+              },
               pinnedApps: _pinnedApps,
               onUnpin: (name) => _handleUnpinRequest(name),
             ),
