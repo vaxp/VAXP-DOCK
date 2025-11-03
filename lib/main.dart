@@ -4,9 +4,12 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:vaxp_core/models/desktop_entry.dart';
 import 'package:vaxp_core/services/dock_service.dart';
+import 'package:hotkey_manager/hotkey_manager.dart';
 import 'widgets/dock/dock_panel.dart';
 
 void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  
   // Initialize D-Bus service
   final dockService = VaxpDockService();
   await dockService.listenAsServer();
@@ -59,15 +62,34 @@ class DockHome extends StatefulWidget {
 class _DockHomeState extends State<DockHome> {
   String? _backgroundImagePath;
   List<DesktopEntry> _pinnedApps = [];
+  bool _launcherVisible = false;
+  bool _launcherMinimized = false;
 
   @override
   void initState() {
     super.initState();
     widget.dockService.onPinRequest = _handlePinRequest;
     widget.dockService.onUnpinRequest = _handleUnpinRequest;
+    widget.dockService.onLauncherState = _handleLauncherState;
     // Ensure Flutter bindings are initialized for shared_preferences
     WidgetsFlutterBinding.ensureInitialized();
     _loadPinnedApps();
+    _setupHotkey();
+  }
+
+  void _handleLauncherState(String state) {
+    setState(() {
+      if (state == 'visible') {
+        _launcherVisible = true;
+        _launcherMinimized = false;
+      } else if (state == 'minimized') {
+        _launcherVisible = true;
+        _launcherMinimized = true;
+      } else {
+        _launcherVisible = false;
+        _launcherMinimized = false;
+      }
+    });
   }
 
   Future<void> _loadPinnedApps() async {
@@ -134,8 +156,20 @@ class _DockHomeState extends State<DockHome> {
 
   void _launchLauncher() async {
     try {
-      // Try to signal a running launcher to restore/show itself first.
-      await widget.dockService.emitRestoreWindow('vaxp-launcher');
+      // If the launcher is visible and not minimized, ask it to minimize/hide
+      if (_launcherVisible && !_launcherMinimized) {
+        await widget.dockService.emitMinimizeWindow('vaxp-launcher');
+        return;
+      }
+
+      // If the launcher is minimized, ask it to restore
+      if (_launcherMinimized) {
+        await widget.dockService.emitRestoreWindow('vaxp-launcher');
+        return;
+      }
+
+      // Otherwise, try to start the launcher process
+      await Process.start('/bin/sh', ['-c', 'vaxp-launcher']);
     } catch (e) {
       // If signaling failed (no listener / error), try to launch the launcher process.
       try {
@@ -149,8 +183,22 @@ class _DockHomeState extends State<DockHome> {
     }
   }
 
+  Future<void> _setupHotkey() async {
+    // Register Super/Windows key as hotkey
+    final hotKey = HotKey(
+      KeyCode.metaLeft,
+      scope: HotKeyScope.system, // Listen to hotkey when app is not focused
+    );
+
+    await HotKeyManager.instance.register(
+      hotKey,
+      keyDownHandler: (hotKey) => _launchLauncher(),
+    );
+  }
+
   @override
   void dispose() {
+    hotKeyManager.unregisterAll();
     widget.dockService.dispose();
     super.dispose();
   }

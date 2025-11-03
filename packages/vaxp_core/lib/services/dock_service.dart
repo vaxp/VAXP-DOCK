@@ -11,12 +11,14 @@ class _VaxpDockObject extends DBusObject {
   final void Function(String name, String exec, String? iconPath, bool isSvgIcon)? onPinRequest;
   final void Function(String name)? onUnpinRequest;
   final void Function()? onShowLauncher;
+  final void Function(String state)? onLauncherState;
 
   _VaxpDockObject(
     DBusObjectPath path, {
     this.onPinRequest,
     this.onUnpinRequest,
     this.onShowLauncher,
+    this.onLauncherState,
   }) : super(path);
 
   @override
@@ -39,6 +41,10 @@ class _VaxpDockObject extends DBusObject {
             args: [DBusIntrospectArgument(DBusSignature('s'), DBusArgumentDirection.in_)],
           ),
           DBusIntrospectMethod('ShowLauncher'),
+          DBusIntrospectMethod(
+            'ReportLauncherState',
+            args: [DBusIntrospectArgument(DBusSignature('s'), DBusArgumentDirection.in_)],
+          ),
         ],
         signals: [
           DBusIntrospectSignal(
@@ -82,6 +88,14 @@ class _VaxpDockObject extends DBusObject {
         onShowLauncher?.call();
         return DBusMethodSuccessResponse([]);
 
+      case 'ReportLauncherState':
+        if (methodCall.values.isNotEmpty) {
+          final state = (methodCall.values[0] as DBusString).value;
+          // notify listeners on the server side
+          onLauncherState?.call(state);
+        }
+        return DBusMethodSuccessResponse([]);
+
       default:
         return DBusMethodErrorResponse.unknownMethod();
     }
@@ -95,6 +109,7 @@ class VaxpDockService {
   void Function(String name, String exec, String? iconPath, bool isSvgIcon)? _onPinRequest;
   void Function(String name)? _onUnpinRequest;
   void Function()? _onShowLauncher;
+  void Function(String state)? _onLauncherState;
 
   VaxpDockService({DBusClient? client}) : _client = client ?? DBusClient.session() {
     _object = _VaxpDockObject(
@@ -102,6 +117,7 @@ class VaxpDockService {
       onPinRequest: (name, exec, iconPath, isSvgIcon) => _onPinRequest?.call(name, exec, iconPath, isSvgIcon),
       onUnpinRequest: (name) => _onUnpinRequest?.call(name),
       onShowLauncher: () => _onShowLauncher?.call(),
+      onLauncherState: (state) => _onLauncherState?.call(state),
     );
   }
 
@@ -116,6 +132,21 @@ class VaxpDockService {
 
   set onShowLauncher(void Function()? callback) {
     _onShowLauncher = callback;
+  }
+
+  set onLauncherState(void Function(String state)? callback) {
+    _onLauncherState = callback;
+  }
+
+  /// Report the launcher's state to the dock (client-side call to the server)
+  Future<void> reportLauncherState(String state) async {
+    await _client.callMethod(
+      destination: vaxpBusName,
+      path: DBusObjectPath(vaxpObjectPath),
+      interface: vaxpInterfaceName,
+      name: 'ReportLauncherState',
+      values: [DBusString(state)],
+    );
   }
 
   // Server methods

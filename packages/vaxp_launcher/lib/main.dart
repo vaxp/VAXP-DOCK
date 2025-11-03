@@ -47,7 +47,6 @@ class _LauncherHomeState extends State<LauncherHome> {
   bool _isLoading = true;
   late final VaxpDockService _dockService;
   late final DBusClient _dbusClient;
-  late final DBusRemoteObject _dockRemoteObject;
   StreamSubscription<DBusSignal>? _minimizeSub;
   StreamSubscription<DBusSignal>? _restoreSub;
 
@@ -59,6 +58,12 @@ class _LauncherHomeState extends State<LauncherHome> {
     while (retryCount < maxRetries) {
       try {
         await _dockService.ensureClientConnection();
+        // After connecting, report that the launcher is visible (initial state)
+        try {
+          await _dockService.reportLauncherState('visible');
+        } catch (_) {
+          // ignore reporting errors
+        }
         return; // Connection successful
       } catch (e) {
         retryCount++;
@@ -88,10 +93,9 @@ class _LauncherHomeState extends State<LauncherHome> {
   void _setupDockSignalListeners() {
     try {
       _dbusClient = DBusClient.session();
-      _dockRemoteObject = DBusRemoteObject(_dbusClient, name: vaxpBusName, path: DBusObjectPath(vaxpObjectPath));
 
-      _minimizeSub = DBusRemoteObjectSignalStream(
-        object: _dockRemoteObject,
+      _minimizeSub = DBusSignalStream(
+        _dbusClient,
         interface: vaxpInterfaceName,
         name: 'MinimizeWindow',
         signature: DBusSignature('s'),
@@ -101,13 +105,18 @@ class _LauncherHomeState extends State<LauncherHome> {
           debugPrint('Dock -> MinimizeWindow signal received for: $name');
           // Received minimize request from dock
           await windowManager.minimize();
+          try {
+            await _dockService.reportLauncherState('minimized');
+          } catch (e) {
+            debugPrint('Failed to report minimized state to dock: $e');
+          }
         } catch (e, st) {
           debugPrint('Error handling MinimizeWindow signal: $e\n$st');
         }
       });
 
-      _restoreSub = DBusRemoteObjectSignalStream(
-        object: _dockRemoteObject,
+      _restoreSub = DBusSignalStream(
+        _dbusClient,
         interface: vaxpInterfaceName,
         name: 'RestoreWindow',
         signature: DBusSignature('s'),
@@ -119,6 +128,11 @@ class _LauncherHomeState extends State<LauncherHome> {
           await windowManager.restore();
           await windowManager.show();
           await windowManager.focus();
+          try {
+            await _dockService.reportLauncherState('visible');
+          } catch (e) {
+            debugPrint('Failed to report visible state to dock: $e');
+          }
         } catch (e, st) {
           debugPrint('Error handling RestoreWindow signal: $e\n$st');
         }

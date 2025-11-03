@@ -1,7 +1,7 @@
 import 'dart:io';
 import '../utils/icon_provider.dart';
 
-import 'package:vaxp_dock/utils/icon_provider.dart';
+// import 'package:vaxp_dock/utils/icon_provider.dart';
 
 class DesktopEntry {
   final String name;
