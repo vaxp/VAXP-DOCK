@@ -224,6 +224,294 @@ class _LauncherHomeState extends State<LauncherHome> {
     }
   }
 
+  Future<String?> _requestPassword() async {
+    final passwordController = TextEditingController();
+    return showDialog<String>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: const Text('Authentication Required'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('Enter your password to uninstall the application:'),
+            const SizedBox(height: 16),
+            TextField(
+              controller: passwordController,
+              obscureText: true,
+              decoration: const InputDecoration(
+                labelText: 'Password',
+                border: OutlineInputBorder(),
+              ),
+              onSubmitted: (value) {
+                Navigator.of(context).pop(value);
+              },
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop(passwordController.text);
+            },
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<String?> _detectPackageManager() async {
+    // Check for common package managers
+    final packageManagers = [
+      ('apt', ['apt', 'apt-get']),
+      ('dnf', ['dnf']),
+      ('yum', ['yum']),
+      ('pacman', ['pacman']),
+      ('zypper', ['zypper']),
+      ('apk', ['apk']),
+    ];
+
+    for (final (name, commands) in packageManagers) {
+      for (final cmd in commands) {
+        try {
+          final result = await Process.run('which', [cmd]);
+          if (result.exitCode == 0 && result.stdout.toString().trim().isNotEmpty) {
+            return name;
+          }
+        } catch (_) {
+          // Continue checking
+        }
+      }
+    }
+    return null;
+  }
+
+  Future<String?> _findPackageName(DesktopEntry entry) async {
+    // Try to find the package that provides this desktop entry
+    final packageManager = await _detectPackageManager();
+    if (packageManager == null) return null;
+
+    // First, try to find the desktop file path
+    final List<String> desktopDirs = [
+      '/usr/share/applications',
+      '/usr/local/share/applications',
+      if (Platform.environment['XDG_DATA_HOME'] != null)
+        '${Platform.environment['XDG_DATA_HOME']!}/applications'
+      else
+        Platform.environment['HOME'] != null
+            ? '${Platform.environment['HOME']!}/.local/share/applications'
+            : '',
+    ];
+
+    String? desktopFilePath;
+    for (final dir in desktopDirs) {
+      final d = Directory(dir);
+      if (!await d.exists()) continue;
+      await for (final file in d.list()) {
+        if (!file.path.endsWith('.desktop')) continue;
+        try {
+          final lines = await File(file.path).readAsLines();
+          for (final line in lines) {
+            if (line.trim().startsWith('Name=') && 
+                line.substring(5).trim() == entry.name) {
+              desktopFilePath = file.path;
+              break;
+            }
+          }
+          if (desktopFilePath != null) break;
+        } catch (_) {
+          continue;
+        }
+      }
+      if (desktopFilePath != null) break;
+    }
+
+    if (desktopFilePath != null) {
+      try {
+        ProcessResult result;
+        switch (packageManager) {
+          case 'apt':
+            result = await Process.run('dpkg', ['-S', desktopFilePath]);
+            if (result.exitCode == 0) {
+              final output = result.stdout.toString().trim();
+              return output.split(':').first;
+            }
+            break;
+          case 'dnf':
+          case 'yum':
+            result = await Process.run('rpm', ['-qf', desktopFilePath]);
+            if (result.exitCode == 0) {
+              final output = result.stdout.toString().trim();
+              return output.split('-')[0];
+            }
+            break;
+          case 'pacman':
+            result = await Process.run('pacman', ['-Qo', desktopFilePath]);
+            if (result.exitCode == 0) {
+              final output = result.stdout.toString().trim();
+              final parts = output.split(' ');
+              if (parts.length >= 2) {
+                return parts[parts.length - 1].split('/').last;
+              }
+            }
+            break;
+        }
+      } catch (_) {
+        // Fall through to name-based approach
+      }
+    }
+
+    // Fallback: try to derive package name from app name
+    final appName = entry.name.toLowerCase();
+    // Remove common suffixes and convert to package name format
+    String packageName = appName
+        .replaceAll(RegExp(r'[^a-z0-9]'), '-')
+        .replaceAll(RegExp(r'-+'), '-')
+        .replaceAll(RegExp(r'^-|-$'), '');
+    
+    return packageName;
+  }
+
+  void _uninstallApp(DesktopEntry entry) async {
+    // Request authentication
+    final password = await _requestPassword();
+    if (password == null || password.isEmpty) {
+      return; // User cancelled or didn't enter password
+    }
+
+    if (!mounted) return;
+
+    // Show loading indicator
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(
+        child: Card(
+          child: Padding(
+            padding: EdgeInsets.all(24.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(height: 16),
+                Text('Uninstalling application...'),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    try {
+      final packageManager = await _detectPackageManager();
+      if (packageManager == null) {
+        if (!mounted) return;
+        Navigator.of(context).pop(); // Close loading dialog
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Could not detect package manager'),
+          ),
+        );
+        return;
+      }
+
+      final packageName = await _findPackageName(entry);
+      if (packageName == null || packageName.isEmpty) {
+        if (!mounted) return;
+        Navigator.of(context).pop(); // Close loading dialog
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Could not determine package name for ${entry.name}'),
+          ),
+        );
+        return;
+      }
+
+      // Build uninstallation command based on package manager
+      List<String> uninstallCmd;
+      switch (packageManager) {
+        case 'apt':
+          uninstallCmd = ['sudo', '-S', 'apt-get', 'remove', '-y', packageName];
+          break;
+        case 'dnf':
+          uninstallCmd = ['sudo', '-S', 'dnf', 'remove', '-y', packageName];
+          break;
+        case 'yum':
+          uninstallCmd = ['sudo', '-S', 'yum', 'remove', '-y', packageName];
+          break;
+        case 'pacman':
+          uninstallCmd = ['sudo', '-S', 'pacman', '-R', '--noconfirm', packageName];
+          break;
+        case 'zypper':
+          uninstallCmd = ['sudo', '-S', 'zypper', 'remove', '-y', packageName];
+          break;
+        case 'apk':
+          uninstallCmd = ['sudo', '-S', 'apk', 'del', packageName];
+          break;
+        default:
+          if (!mounted) return;
+          Navigator.of(context).pop(); // Close loading dialog
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Unsupported package manager')),
+          );
+          return;
+      }
+
+      // Execute uninstallation
+      final process = await Process.start(
+        uninstallCmd[0],
+        uninstallCmd.sublist(1),
+        mode: ProcessStartMode.normal,
+      );
+
+      // Send password to stdin
+      process.stdin.writeln(password);
+      await process.stdin.close();
+
+      // Wait for process to complete
+      final exitCode = await process.exitCode;
+      final stderr = await process.stderr.transform(
+        const SystemEncoding().decoder,
+      ).join();
+
+      if (!mounted) return;
+      Navigator.of(context).pop(); // Close loading dialog
+
+      if (exitCode == 0) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Successfully uninstalled ${entry.name}'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        // Reload apps to reflect the uninstallation
+        _loadApps();
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to uninstall ${entry.name}: ${stderr.isNotEmpty ? stderr : 'Uninstallation failed'}'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      Navigator.of(context).pop(); // Close loading dialog
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error uninstalling ${entry.name}: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
   @override
   void dispose() {
     _searchController.dispose();
@@ -264,6 +552,7 @@ class _LauncherHomeState extends State<LauncherHome> {
                     apps: _filteredApps,
                     onLaunch: _launchEntry,
                     onPin: _pinToDock,
+                    onInstall: _uninstallApp,
                   ),
           ),
         ],

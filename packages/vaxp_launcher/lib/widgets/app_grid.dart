@@ -7,12 +7,14 @@ class AppGrid extends StatelessWidget {
   final List<DesktopEntry> apps;
   final void Function(DesktopEntry) onLaunch;
   final void Function(DesktopEntry)? onPin;
+  final void Function(DesktopEntry)? onInstall;
 
   const AppGrid({
     super.key, 
     required this.apps, 
     required this.onLaunch,
     this.onPin,
+    this.onInstall,
   });
 
   @override
@@ -29,7 +31,7 @@ class AppGrid extends StatelessWidget {
       itemBuilder: (context, index) {
         final e = apps[index];
         return GestureDetector(
-          onSecondaryTapUp: onPin == null ? null : (details) {
+          onSecondaryTapUp: (onPin == null && onInstall == null) ? null : (details) {
             final RenderBox overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
             final position = RelativeRect.fromRect(
               Rect.fromPoints(
@@ -39,10 +41,10 @@ class AppGrid extends StatelessWidget {
               Offset.zero & overlay.size,
             );
             
-            showMenu(
-              context: context,
-              position: position,
-              items: [
+            final List<PopupMenuEntry> menuItems = [];
+            
+            if (onPin != null) {
+              menuItems.add(
                 PopupMenuItem(
                   child: const Text('Pin to dock'),
                   onTap: () {
@@ -50,7 +52,25 @@ class AppGrid extends StatelessWidget {
                     onPin?.call(e);
                   },
                 ),
-              ],
+              );
+            }
+            
+            if (onInstall != null) {
+              menuItems.add(
+                PopupMenuItem(
+                  child: const Text('Uninstall this app'),
+                  onTap: () {
+                    Navigator.of(context).maybePop();
+                    onInstall?.call(e);
+                  },
+                ),
+              );
+            }
+            
+            showMenu(
+              context: context,
+              position: position,
+              items: menuItems,
             );
           },
           child: InkWell(
