@@ -152,6 +152,29 @@ class _LauncherHomeState extends State<LauncherHome> {
     });
   }
 
+  Future<void> _refreshApps() async {
+    // Reload desktop entries from scratch
+    _allAppsFuture = DesktopEntry.loadAll();
+    // Reload and update the UI
+    setState(() => _isLoading = true);
+    final apps = await _allAppsFuture;
+    if (!mounted) return;
+    
+    // Preserve search filter if active
+    final query = _searchController.text.trim();
+    setState(() {
+      if (query.isEmpty) {
+        _filteredApps = apps;
+      } else {
+        _filteredApps = apps
+            .where((app) =>
+                app.name.toLowerCase().contains(query.toLowerCase()))
+            .toList();
+      }
+      _isLoading = false;
+    });
+  }
+
   void _filterApps(String query) {
     _allAppsFuture.then((apps) {
       setState(() {
@@ -489,8 +512,8 @@ class _LauncherHomeState extends State<LauncherHome> {
             backgroundColor: Colors.green,
           ),
         );
-        // Reload apps to reflect the uninstallation
-        _loadApps();
+        // Refresh apps to reflect the uninstallation
+        await _refreshApps();
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
