@@ -171,7 +171,13 @@ class _LauncherHomeState extends State<LauncherHome> {
     if (cleaned.isEmpty) return;
     try {
       await Process.start('/bin/sh', ['-c', cleaned]);
-      Navigator.of(context).pop(); // Close launcher after launching app
+      // Minimize launcher after launching app
+      await windowManager.minimize();
+      try {
+        await _dockService.reportLauncherState('minimized');
+      } catch (e) {
+        debugPrint('Failed to report minimized state to dock: $e');
+      }
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

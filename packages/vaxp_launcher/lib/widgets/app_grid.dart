@@ -56,7 +56,6 @@ class AppGrid extends StatelessWidget {
           child: InkWell(
             borderRadius: BorderRadius.circular(18),
             onTap: () {
-              Navigator.of(context).maybePop();
               onLaunch(e);
             },
             child: Container(
