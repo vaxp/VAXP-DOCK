@@ -97,7 +97,7 @@ static void my_application_activate(GApplication* application) {
   background_color.red = 0.0;
   background_color.green = 0.0;
   background_color.blue = 0.0;
-  background_color.alpha = 0.3; // <-- شفافية 30%
+  background_color.alpha = 0.1; // <-- شفافية 30%
   fl_view_set_background_color(view, &background_color);
 
   gtk_widget_show(GTK_WIDGET(view));
