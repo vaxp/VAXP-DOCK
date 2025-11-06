@@ -5,7 +5,9 @@ import 'package:dbus/dbus.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:vaxp_core/models/desktop_entry.dart';
 import 'package:vaxp_core/services/dock_service.dart';
+import 'package:file_picker/file_picker.dart';
 import 'widgets/app_grid.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -53,6 +55,7 @@ class _LauncherHomeState extends State<LauncherHome> {
   // Settings state
   Color _backgroundColor = Colors.black;
   double _opacity = 0.7; // 0.7 = 70% opacity (0.54 alpha when combined with black)
+  String? _backgroundImagePath;
 
   Future<void> _connectToDockService() async {
     const maxRetries = 3;
@@ -92,6 +95,44 @@ class _LauncherHomeState extends State<LauncherHome> {
     _connectToDockService();
     // Start listening for dock signals (minimize/restore)
     _setupDockSignalListeners();
+    _loadSettings();
+  }
+
+  Future<void> _loadSettings() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final intColor = prefs.getInt('launcher_bg_color');
+      final doubleOpacity = prefs.getDouble('launcher_opacity');
+      final imagePath = prefs.getString('launcher_bg_image');
+
+      if (!mounted) return;
+      setState(() {
+        if (intColor != null) {
+          _backgroundColor = Color(intColor);
+        }
+        if (doubleOpacity != null) {
+          _opacity = doubleOpacity.clamp(0.0, 1.0);
+        }
+        _backgroundImagePath = imagePath;
+      });
+    } catch (e) {
+      debugPrint('Failed to load settings: $e');
+    }
+  }
+
+  Future<void> _saveSettings() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setInt('launcher_bg_color', _backgroundColor.value);
+      await prefs.setDouble('launcher_opacity', _opacity);
+      if (_backgroundImagePath == null || _backgroundImagePath!.isEmpty) {
+        await prefs.remove('launcher_bg_image');
+      } else {
+        await prefs.setString('launcher_bg_image', _backgroundImagePath!);
+      }
+    } catch (e) {
+      debugPrint('Failed to save settings: $e');
+    }
   }
 
   void _setupDockSignalListeners() {
@@ -885,9 +926,26 @@ Terminal=false
     super.dispose();
   }
 
+  Future<String?> _pickBackgroundImage() async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.image,
+        allowMultiple: false,
+      );
+      
+      if (result != null && result.files.single.path != null) {
+        return result.files.single.path;
+      }
+    } catch (e) {
+      debugPrint('Error picking image: $e');
+    }
+    return null;
+  }
+
   void _showSettingsDialog() {
     Color tempColor = _backgroundColor;
     double tempOpacity = _opacity;
+    String? tempBackgroundImage = _backgroundImagePath;
     
     showDialog(
       context: context,
@@ -1051,6 +1109,80 @@ Terminal=false
                 
                 const SizedBox(height: 32),
                 
+                // Background Image
+                const Text(
+                  'Background Image',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: () async {
+                          final imagePath = await _pickBackgroundImage();
+                          if (imagePath != null) {
+                            setDialogState(() {
+                              tempBackgroundImage = imagePath;
+                            });
+                          }
+                        },
+                        icon: const Icon(Icons.image),
+                        label: const Text('Select Image'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.blue,
+                          foregroundColor: Colors.white,
+                        ),
+                      ),
+                    ),
+                    if (tempBackgroundImage != null) ...[
+                      const SizedBox(width: 12),
+                      ElevatedButton.icon(
+                        onPressed: () {
+                          setDialogState(() {
+                            tempBackgroundImage = null;
+                          });
+                        },
+                        icon: const Icon(Icons.delete),
+                        label: const Text('Remove'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.red,
+                          foregroundColor: Colors.white,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+                if (tempBackgroundImage != null) ...[
+                  const SizedBox(height: 12),
+                  Container(
+                    height: 100,
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.white24),
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: Image.file(
+                        File(tempBackgroundImage!),
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) {
+                          return const Center(
+                            child: Icon(Icons.error, color: Colors.red),
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                ],
+                
+                const SizedBox(height: 32),
+                
                 // Preview
                 Container(
                   padding: const EdgeInsets.all(16),
@@ -1059,9 +1191,33 @@ Terminal=false
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(color: Colors.white24),
                   ),
-                  child: const Text(
-                    'Preview',
-                    style: TextStyle(color: Colors.white),
+                  child: Stack(
+                    children: [
+                      if (tempBackgroundImage != null)
+                        Positioned.fill(
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: Image.file(
+                              File(tempBackgroundImage!),
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) {
+                                return const SizedBox();
+                              },
+                            ),
+                          ),
+                        ),
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: tempColor.withOpacity(tempOpacity),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Text(
+                          'Preview',
+                          style: TextStyle(color: Colors.white),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
                 
@@ -1084,7 +1240,9 @@ Terminal=false
                         setState(() {
                           _backgroundColor = tempColor;
                           _opacity = tempOpacity;
+                          _backgroundImagePath = tempBackgroundImage;
                         });
+                        _saveSettings();
                         Navigator.of(context).pop();
                       },
                       style: ElevatedButton.styleFrom(
@@ -1126,7 +1284,27 @@ Terminal=false
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: _backgroundColor.withOpacity(_opacity),
-      body: Column(
+      body: Stack(
+        children: [
+          // Background image
+          if (_backgroundImagePath != null)
+            Positioned.fill(
+              child: Image.file(
+                File(_backgroundImagePath!),
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) {
+                  return const SizedBox();
+                },
+              ),
+            ),
+          // Color overlay
+          Positioned.fill(
+            child: Container(
+              color: _backgroundColor.withOpacity(_opacity),
+            ),
+          ),
+          // Content
+          Column(
         children: [
           Padding(
             padding: const EdgeInsets.all(16.0),
@@ -1175,6 +1353,8 @@ Terminal=false
                     onLaunchWithExternalGPU: _launchWithExternalGPU,
                   ),
           ),
+        ],
+      ),
         ],
       ),
     );

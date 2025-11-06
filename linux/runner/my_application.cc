@@ -124,7 +124,7 @@ static void my_application_activate(GApplication* application) {
   FlView* view = fl_view_new(project);
 
   GdkRGBA background_color;
-  gdk_rgba_parse(&background_color, "rgba(0,0,0,0.3)");
+  gdk_rgba_parse(&background_color, "rgba(0, 0, 0, 0)");
   fl_view_set_background_color(view, &background_color);
 
   gtk_widget_show(GTK_WIDGET(view));
