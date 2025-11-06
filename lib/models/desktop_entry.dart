@@ -8,13 +8,35 @@ class DesktopEntry {
   final String? exec;
   late final String? iconPath;
   final bool isSvgIcon;
+  final int? position; // Position in the dock
 
   DesktopEntry({
     required this.name,
     this.exec,
     this.iconPath,
     this.isSvgIcon = false,
+    this.position,
   });
+
+  Map<String, dynamic> toJson() {
+    return {
+      'name': name,
+      'exec': exec,
+      'iconPath': iconPath,
+      'isSvgIcon': isSvgIcon,
+      'position': position,
+    };
+  }
+
+  factory DesktopEntry.fromJson(Map<String, dynamic> json) {
+    return DesktopEntry(
+      name: json['name'] as String,
+      exec: json['exec'] as String?,
+      iconPath: json['iconPath'] as String?,
+      isSvgIcon: json['isSvgIcon'] as bool? ?? false,
+      position: json['position'] as int?,
+    );
+  }
 
   static Future<List<DesktopEntry>> loadAll() async {
     final List<String> dirs = [

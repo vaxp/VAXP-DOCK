@@ -238,6 +238,13 @@ class _DockHomeState extends State<DockHome> {
               },
               pinnedApps: _pinnedApps,
               onUnpin: (name) => _handleUnpinRequest(name),
+              onReorder: (oldIndex, newIndex) {
+                setState(() {
+                  final item = _pinnedApps.removeAt(oldIndex);
+                  _pinnedApps.insert(newIndex, item);
+                  _savePinnedApps();
+                });
+              },
             ),
           ),
         ],

@@ -1,6 +1,8 @@
 import 'dart:ffi';
 import 'dart:io' show Platform, Directory, File;
+// ignore: depend_on_referenced_packages
 import 'package:path/path.dart' as path;
+// ignore: depend_on_referenced_packages
 import 'package:ffi/ffi.dart';
 import 'package:flutter/material.dart';
 
@@ -39,8 +41,7 @@ class IconLoader {
       } else {
         _gtkAvailable = false;
       }
-    } catch (e) {
-      print('Failed to initialize GTK icon loader: $e');
+    } catch (e) {      
       _gtkAvailable = false;
     }
   }
