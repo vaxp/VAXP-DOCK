@@ -186,14 +186,79 @@ class _LauncherHomeState extends State<LauncherHome> {
     });
   }
 
-  void _launchEntry(DesktopEntry entry) async {
+  Future<String?> _detectGPUSwitcher() async {
+    // Check for common GPU switching methods in order of preference
+    // 1. prime-run (modern PRIME offloading wrapper - works for both AMD/NVIDIA)
+    try {
+      final result = await Process.run('which', ['prime-run']);
+      if (result.exitCode == 0 && result.stdout.toString().trim().isNotEmpty) {
+        return 'prime-run';
+      }
+    } catch (_) {
+      // Continue checking
+    }
+
+    // 2. optirun (Bumblebee/Optimus wrapper - primarily NVIDIA)
+    try {
+      final result = await Process.run('which', ['optirun']);
+      if (result.exitCode == 0 && result.stdout.toString().trim().isNotEmpty) {
+        return 'optirun';
+      }
+    } catch (_) {
+      // Continue checking
+    }
+
+    // 3. primusrun (Primus wrapper - primarily NVIDIA)
+    try {
+      final result = await Process.run('which', ['primusrun']);
+      if (result.exitCode == 0 && result.stdout.toString().trim().isNotEmpty) {
+        return 'primusrun';
+      }
+    } catch (_) {
+      // Continue checking
+    }
+
+    // 4. Fallback to DRI_PRIME for generic PRIME offloading (works for both AMD/NVIDIA)
+    // This is the most common method for AMD discrete GPUs and a fallback for NVIDIA.
+    // DRI_PRIME is a standard mechanism that works on systems with PRIME configured.
+    // The system will handle if a discrete GPU is actually present and configured for PRIME.
+    return 'DRI_PRIME';
+  }
+
+  Future<void> _launchEntry(DesktopEntry entry, {bool useExternalGPU = false}) async {
     final cmd = entry.exec;
     if (cmd == null) return;
     // remove placeholders like %U, %f, etc.
     final cleaned = cmd.replaceAll(RegExp(r'%[a-zA-Z]'), '').trim();
     if (cleaned.isEmpty) return;
+    
+    String finalCmd = cleaned;
+    
+    if (useExternalGPU) {
+      final gpuSwitcher = await _detectGPUSwitcher();
+      if (gpuSwitcher == null) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('No GPU switching method detected. Please install prime-run or optirun.'),
+            backgroundColor: Colors.orange,
+            duration: Duration(seconds: 4),
+          ),
+        );
+        return;
+      }
+
+      if (gpuSwitcher == 'DRI_PRIME') {
+        // Use DRI_PRIME environment variable
+        finalCmd = 'DRI_PRIME=1 $cleaned';
+      } else {
+        // Use wrapper command (prime-run, optirun, primusrun)
+        finalCmd = '$gpuSwitcher $cleaned';
+      }
+    }
+
     try {
-      await Process.start('/bin/sh', ['-c', cleaned]);
+      await Process.start('/bin/sh', ['-c', finalCmd]);
       // Minimize launcher after launching app
       await windowManager.minimize();
       try {
@@ -207,6 +272,10 @@ class _LauncherHomeState extends State<LauncherHome> {
         SnackBar(content: Text('Failed to launch ${entry.name}: $e')),
       );
     }
+  }
+
+  Future<void> _launchWithExternalGPU(DesktopEntry entry) async {
+    await _launchEntry(entry, useExternalGPU: true);
   }
 
   Future<String?> _findDesktopFilePath(DesktopEntry entry) async {
@@ -844,6 +913,7 @@ Terminal=false
                     onPin: _pinToDock,
                     onInstall: _uninstallApp,
                     onCreateShortcut: _createDesktopShortcut,
+                    onLaunchWithExternalGPU: _launchWithExternalGPU,
                   ),
           ),
         ],

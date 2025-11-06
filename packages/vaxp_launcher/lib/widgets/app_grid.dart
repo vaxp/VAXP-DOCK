@@ -9,6 +9,7 @@ class AppGrid extends StatelessWidget {
   final void Function(DesktopEntry)? onPin;
   final void Function(DesktopEntry)? onInstall;
   final void Function(DesktopEntry)? onCreateShortcut;
+  final void Function(DesktopEntry)? onLaunchWithExternalGPU;
 
   const AppGrid({
     super.key, 
@@ -17,6 +18,7 @@ class AppGrid extends StatelessWidget {
     this.onPin,
     this.onInstall,
     this.onCreateShortcut,
+    this.onLaunchWithExternalGPU,
   });
 
   @override
@@ -33,7 +35,7 @@ class AppGrid extends StatelessWidget {
       itemBuilder: (context, index) {
         final e = apps[index];
         return GestureDetector(
-          onSecondaryTapUp: (onPin == null && onInstall == null && onCreateShortcut == null) ? null : (details) {
+          onSecondaryTapUp: (onPin == null && onInstall == null && onCreateShortcut == null && onLaunchWithExternalGPU == null) ? null : (details) {
             final RenderBox overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
             final position = RelativeRect.fromRect(
               Rect.fromPoints(
@@ -76,6 +78,18 @@ class AppGrid extends StatelessWidget {
                   onTap: () {
                     Navigator.of(context).maybePop();
                     onCreateShortcut?.call(e);
+                  },
+                ),
+              );
+            }
+            
+            if (onLaunchWithExternalGPU != null) {
+              menuItems.add(
+                PopupMenuItem(
+                  child: const Text('Run with external GPU'),
+                  onTap: () {
+                    Navigator.of(context).maybePop();
+                    onLaunchWithExternalGPU?.call(e);
                   },
                 ),
               );
