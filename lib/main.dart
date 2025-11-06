@@ -128,6 +128,7 @@ class _DockHomeState extends State<DockHome> {
           iconPath: iconPath,
           isSvgIcon: isSvgIcon,
         ));
+        _savePinnedApps(); // Save changes to persistent storage
       }
     });
   }
@@ -135,6 +136,7 @@ class _DockHomeState extends State<DockHome> {
   void _handleUnpinRequest(String name) {
     setState(() {
       _pinnedApps.removeWhere((app) => app.name == name);
+      _savePinnedApps(); // Save changes to persistent storage
     });
   }
 
