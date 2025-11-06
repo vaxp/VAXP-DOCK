@@ -6,6 +6,10 @@ import 'package:window_manager/window_manager.dart';
 import 'package:vaxp_core/models/desktop_entry.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:vaxp_core/services/dock_service.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import '../features/system_stats/presentation/widgets/system_stats_grid.dart';
+import '../features/system_stats/presentation/cubit/system_stats_cubit.dart';
+import '../features/system_stats/data/repositories/system_stats_repository.dart';
 import '../widgets/app_grid.dart';
 import '../widgets/password_dialog.dart';
 import '../widgets/color_picker_dialog.dart';
@@ -564,8 +568,17 @@ class _LauncherHomeState extends State<LauncherHome> {
           Padding(
             padding: const EdgeInsets.all(16.0),
             child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                Expanded(
+                 SizedBox(width: MediaQuery.of(context).size.width / 2.5),
+                Container(
+                  alignment: Alignment.center,
+                  width: MediaQuery.of(context).size.width / 5,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: Colors.white10,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
                   child: TextField(
                     controller: _searchController,
                     onChanged: _filterApps,
@@ -590,10 +603,21 @@ class _LauncherHomeState extends State<LauncherHome> {
                   tooltip: 'Settings',
                   style: IconButton.styleFrom(
                     backgroundColor: Colors.white10,
-                    padding: const EdgeInsets.all(12),
+                    padding: const EdgeInsets.all(4),
                   ),
                 ),
               ],
+            ),
+          ),
+          // System stats grid below the search bar (provide its Cubit)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0),
+            child: SizedBox(
+              height: 220,
+              child: BlocProvider<SystemStatsCubit>(
+                create: (_) => SystemStatsCubit(SystemStatsRepository()),
+                child: SystemStatsGrid(),
+              ),
             ),
           ),
           Expanded(

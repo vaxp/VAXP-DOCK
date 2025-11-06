@@ -24,12 +24,14 @@ class AppGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GridView.builder(
+      
       padding: const EdgeInsets.all(12),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+
         crossAxisCount: 6,
-        crossAxisSpacing: 12,
-        mainAxisSpacing: 12,
-        childAspectRatio: 1,
+        crossAxisSpacing: 16,
+        mainAxisSpacing: 16,
+        childAspectRatio: 2,
       ),
       itemCount: apps.length,
       itemBuilder: (context, index) {
@@ -108,9 +110,9 @@ class AppGrid extends StatelessWidget {
             },
             child: Container(
               decoration: BoxDecoration(
-                color: Colors.transparent,
-                borderRadius: BorderRadius.circular(18),
+                color: const Color.fromARGB(0, 0, 0, 0),
                 border: Border.all(color: Colors.transparent),
+                borderRadius: BorderRadius.circular(18),
               ),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
