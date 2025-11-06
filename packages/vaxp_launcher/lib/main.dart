@@ -49,6 +49,10 @@ class _LauncherHomeState extends State<LauncherHome> {
   late final DBusClient _dbusClient;
   StreamSubscription<DBusSignal>? _minimizeSub;
   StreamSubscription<DBusSignal>? _restoreSub;
+  
+  // Settings state
+  Color _backgroundColor = Colors.black;
+  double _opacity = 0.7; // 0.7 = 70% opacity (0.54 alpha when combined with black)
 
   Future<void> _connectToDockService() async {
     const maxRetries = 3;
@@ -881,27 +885,282 @@ Terminal=false
     super.dispose();
   }
 
+  void _showSettingsDialog() {
+    Color tempColor = _backgroundColor;
+    double tempOpacity = _opacity;
+    
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Container(
+            width: 500,
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: Colors.grey[900],
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Title
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'Launcher Settings',
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close, color: Colors.white70),
+                      onPressed: () => Navigator.of(context).pop(),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 32),
+                
+                // Background Color
+                const Text(
+                  'Background Color',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                // Color picker grid
+                GridView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 8,
+                    crossAxisSpacing: 8,
+                    mainAxisSpacing: 8,
+                    childAspectRatio: 1,
+                  ),
+                  itemCount: _presetColors.length,
+                  itemBuilder: (context, index) {
+                    final color = _presetColors[index];
+                    final isSelected = tempColor == color;
+                    return GestureDetector(
+                      onTap: () {
+                        setDialogState(() {
+                          tempColor = color;
+                        });
+                      },
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: color,
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: isSelected ? Colors.white : Colors.transparent,
+                            width: 3,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.3),
+                              blurRadius: 4,
+                              spreadRadius: 1,
+                            ),
+                          ],
+                        ),
+                        child: isSelected
+                            ? const Icon(Icons.check, color: Colors.white, size: 20)
+                            : null,
+                      ),
+                    );
+                  },
+                ),
+                const SizedBox(height: 8),
+                // Custom color picker button
+                ElevatedButton.icon(
+                  onPressed: () async {
+                    final pickedColor = await showDialog<Color>(
+                      context: context,
+                      builder: (dialogContext) => _CustomColorPickerDialog(
+                        initialColor: tempColor,
+                      ),
+                    );
+                    if (pickedColor != null) {
+                      setDialogState(() {
+                        tempColor = pickedColor;
+                      });
+                    }
+                  },
+                  icon: const Icon(Icons.colorize),
+                  label: const Text('Custom Color'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blue,
+                    foregroundColor: Colors.white,
+                  ),
+                ),
+                
+                const SizedBox(height: 32),
+                
+                // Transparency
+                const Text(
+                  'Transparency',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Slider(
+                        value: tempOpacity,
+                        min: 0.0,
+                        max: 1.0,
+                        divisions: 100,
+                        label: '${(tempOpacity * 100).round()}%',
+                        onChanged: (value) {
+                          setDialogState(() {
+                            tempOpacity = value;
+                          });
+                        },
+                        activeColor: Colors.blue,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    SizedBox(
+                      width: 60,
+                      child: Text(
+                        '${(tempOpacity * 100).round()}%',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  ],
+                ),
+                
+                const SizedBox(height: 32),
+                
+                // Preview
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: tempColor.withOpacity(tempOpacity),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.white24),
+                  ),
+                  child: const Text(
+                    'Preview',
+                    style: TextStyle(color: Colors.white),
+                  ),
+                ),
+                
+                const SizedBox(height: 32),
+                
+                // Buttons
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      child: const Text(
+                        'Cancel',
+                        style: TextStyle(color: Colors.white70),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    ElevatedButton(
+                      onPressed: () {
+                        setState(() {
+                          _backgroundColor = tempColor;
+                          _opacity = tempOpacity;
+                        });
+                        Navigator.of(context).pop();
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.blue,
+                        foregroundColor: Colors.white,
+                      ),
+                      child: const Text('Apply'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  static final List<Color> _presetColors = [
+    Colors.black,
+    Colors.grey[900]!,
+    Colors.grey[800]!,
+    Colors.blue[900]!,
+    Colors.purple[900]!,
+    Colors.indigo[900]!,
+    Colors.teal[900]!,
+    Colors.green[900]!,
+    Colors.orange[900]!,
+    Colors.red[900]!,
+    Colors.pink[900]!,
+    Colors.amber[900]!,
+    Colors.cyan[900]!,
+    Colors.deepPurple[900]!,
+    Colors.lime[900]!,
+    Colors.brown[900]!,
+  ];
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black54,
+      backgroundColor: _backgroundColor.withOpacity(_opacity),
       body: Column(
         children: [
           Padding(
             padding: const EdgeInsets.all(16.0),
-            child: TextField(
-              controller: _searchController,
-              onChanged: _filterApps,
-              decoration: InputDecoration(
-                hintText: 'Search applications...',
-                prefixIcon: const Icon(Icons.search),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _searchController,
+                    onChanged: _filterApps,
+                    decoration: InputDecoration(
+                      hintText: 'Search applications...',
+                      prefixIcon: const Icon(Icons.search),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      filled: true,
+                      fillColor: Colors.white10,
+                    ),
+                    style: const TextStyle(color: Colors.white),
+                  ),
                 ),
-                filled: true,
-                fillColor: Colors.white10,
-              ),
-              style: const TextStyle(color: Colors.white),
+                const SizedBox(width: 12),
+                IconButton(
+                  onPressed: _showSettingsDialog,
+                  icon: const Icon(Icons.settings),
+                  iconSize: 28,
+                  color: Colors.white,
+                  tooltip: 'Settings',
+                  style: IconButton.styleFrom(
+                    backgroundColor: Colors.white10,
+                    padding: const EdgeInsets.all(12),
+                  ),
+                ),
+              ],
             ),
           ),
           Expanded(
@@ -922,4 +1181,132 @@ Terminal=false
   }
 
 
+}
+
+class _CustomColorPickerDialog extends StatefulWidget {
+  final Color initialColor;
+
+  const _CustomColorPickerDialog({required this.initialColor});
+
+  @override
+  State<_CustomColorPickerDialog> createState() => _CustomColorPickerDialogState();
+}
+
+class _CustomColorPickerDialogState extends State<_CustomColorPickerDialog> {
+  late HSVColor _hsvColor;
+  late Color _currentColor;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentColor = widget.initialColor;
+    _hsvColor = HSVColor.fromColor(_currentColor);
+  }
+
+  void _updateColor(HSVColor hsv) {
+    setState(() {
+      _hsvColor = hsv;
+      _currentColor = hsv.toColor();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Pick a Color'),
+      backgroundColor: Colors.grey[900],
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Color preview
+            Container(
+              width: double.infinity,
+              height: 100,
+              decoration: BoxDecoration(
+                color: _currentColor,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.white24),
+              ),
+            ),
+            const SizedBox(height: 24),
+            // Hue slider
+            Row(
+              children: [
+                const Text('Hue:', style: TextStyle(color: Colors.white)),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Slider(
+                    value: _hsvColor.hue,
+                    min: 0.0,
+                    max: 360.0,
+                    divisions: 360,
+                    label: '${_hsvColor.hue.round()}°',
+                    onChanged: (value) {
+                      _updateColor(_hsvColor.withHue(value));
+                    },
+                    activeColor: Colors.blue,
+                  ),
+                ),
+              ],
+            ),
+            // Saturation slider
+            Row(
+              children: [
+                const Text('Saturation:', style: TextStyle(color: Colors.white)),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Slider(
+                    value: _hsvColor.saturation,
+                    min: 0.0,
+                    max: 1.0,
+                    divisions: 100,
+                    label: '${(_hsvColor.saturation * 100).round()}%',
+                    onChanged: (value) {
+                      _updateColor(_hsvColor.withSaturation(value));
+                    },
+                    activeColor: Colors.blue,
+                  ),
+                ),
+              ],
+            ),
+            // Value (brightness) slider
+            Row(
+              children: [
+                const Text('Brightness:', style: TextStyle(color: Colors.white)),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Slider(
+                    value: _hsvColor.value,
+                    min: 0.0,
+                    max: 1.0,
+                    divisions: 100,
+                    label: '${(_hsvColor.value * 100).round()}%',
+                    onChanged: (value) {
+                      _updateColor(_hsvColor.withValue(value));
+                    },
+                    activeColor: Colors.blue,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel', style: TextStyle(color: Colors.white70)),
+        ),
+        ElevatedButton(
+          onPressed: () => Navigator.of(context).pop(_currentColor),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.blue,
+            foregroundColor: Colors.white,
+          ),
+          child: const Text('Select'),
+        ),
+      ],
+    );
+  }
 }
