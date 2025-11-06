@@ -209,6 +209,153 @@ class _LauncherHomeState extends State<LauncherHome> {
     }
   }
 
+  Future<String?> _findDesktopFilePath(DesktopEntry entry) async {
+    // Search for the desktop file that matches this entry
+    final List<String> desktopDirs = [
+      '/usr/share/applications',
+      '/usr/local/share/applications',
+      if (Platform.environment['XDG_DATA_HOME'] != null)
+        '${Platform.environment['XDG_DATA_HOME']!}/applications'
+      else
+        Platform.environment['HOME'] != null
+            ? '${Platform.environment['HOME']!}/.local/share/applications'
+            : '',
+    ];
+
+    for (final dir in desktopDirs) {
+      final d = Directory(dir);
+      if (!await d.exists()) continue;
+      await for (final file in d.list()) {
+        if (!file.path.endsWith('.desktop')) continue;
+        try {
+          final lines = await File(file.path).readAsLines();
+          for (final line in lines) {
+            if (line.trim().startsWith('Name=') && 
+                line.substring(5).trim() == entry.name) {
+              return file.path;
+            }
+          }
+        } catch (_) {
+          continue;
+        }
+      }
+    }
+    return null;
+  }
+
+  void _createDesktopShortcut(DesktopEntry entry) async {
+    try {
+      // Get Desktop directory path
+      String desktopDir;
+      if (Platform.environment['XDG_DESKTOP_DIR'] != null) {
+        desktopDir = Platform.environment['XDG_DESKTOP_DIR']!;
+      } else if (Platform.environment['HOME'] != null) {
+        desktopDir = '${Platform.environment['HOME']!}/Desktop';
+      } else {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Could not determine Desktop directory'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+
+      // Create Desktop directory if it doesn't exist
+      final desktopDirectory = Directory(desktopDir);
+      if (!await desktopDirectory.exists()) {
+        await desktopDirectory.create(recursive: true);
+      }
+
+      // Find the original desktop file
+      final sourceDesktopFile = await _findDesktopFilePath(entry);
+      
+      String desktopContent;
+      if (sourceDesktopFile != null) {
+        // Read the original desktop file
+        final originalContent = await File(sourceDesktopFile).readAsString();
+        // Modify it to ensure it's a proper desktop shortcut
+        final lines = originalContent.split('\n');
+        final modifiedLines = <String>[];
+        bool hasType = false;
+        bool hasVersion = false;
+        
+        for (final line in lines) {
+          final trimmed = line.trim();
+          if (trimmed.startsWith('[Desktop Entry]')) {
+            modifiedLines.add(trimmed);
+            continue;
+          }
+          if (trimmed.startsWith('Type=')) {
+            modifiedLines.add('Type=Application');
+            hasType = true;
+            continue;
+          }
+          if (trimmed.startsWith('Version=')) {
+            modifiedLines.add('Version=1.0');
+            hasVersion = true;
+            continue;
+          }
+          if (trimmed.isEmpty || trimmed.startsWith('#')) {
+            modifiedLines.add(line);
+            continue;
+          }
+          modifiedLines.add(line);
+        }
+        
+        // Ensure required fields are present
+        if (!hasType) {
+          modifiedLines.insert(1, 'Type=Application');
+        }
+        if (!hasVersion) {
+          modifiedLines.insert(1, 'Version=1.0');
+        }
+        
+        desktopContent = modifiedLines.join('\n');
+      } else {
+        // Create a minimal desktop file if source not found
+        desktopContent = '''[Desktop Entry]
+Version=1.0
+Type=Application
+Name=${entry.name}
+Exec=${entry.exec ?? ''}
+Icon=${entry.iconPath ?? 'application-default-icon'}
+Terminal=false
+''';
+      }
+
+      // Create a safe filename from the app name
+      final safeName = entry.name
+          .replaceAll(RegExp(r'[^a-zA-Z0-9\s\-_]'), '')
+          .replaceAll(RegExp(r'\s+'), '-');
+      final shortcutPath = '$desktopDir/$safeName.desktop';
+
+      // Write the desktop file
+      final shortcutFile = File(shortcutPath);
+      await shortcutFile.writeAsString(desktopContent);
+
+      // Make it executable
+      await Process.run('chmod', ['+x', shortcutPath]);
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Desktop shortcut created for ${entry.name}'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to create desktop shortcut: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
   void _pinToDock(DesktopEntry entry) async {
     try {
       // Try to ensure connection before pinning
@@ -696,6 +843,7 @@ class _LauncherHomeState extends State<LauncherHome> {
                     onLaunch: _launchEntry,
                     onPin: _pinToDock,
                     onInstall: _uninstallApp,
+                    onCreateShortcut: _createDesktopShortcut,
                   ),
           ),
         ],

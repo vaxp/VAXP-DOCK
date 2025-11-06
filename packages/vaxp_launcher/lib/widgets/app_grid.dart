@@ -8,6 +8,7 @@ class AppGrid extends StatelessWidget {
   final void Function(DesktopEntry) onLaunch;
   final void Function(DesktopEntry)? onPin;
   final void Function(DesktopEntry)? onInstall;
+  final void Function(DesktopEntry)? onCreateShortcut;
 
   const AppGrid({
     super.key, 
@@ -15,6 +16,7 @@ class AppGrid extends StatelessWidget {
     required this.onLaunch,
     this.onPin,
     this.onInstall,
+    this.onCreateShortcut,
   });
 
   @override
@@ -31,7 +33,7 @@ class AppGrid extends StatelessWidget {
       itemBuilder: (context, index) {
         final e = apps[index];
         return GestureDetector(
-          onSecondaryTapUp: (onPin == null && onInstall == null) ? null : (details) {
+          onSecondaryTapUp: (onPin == null && onInstall == null && onCreateShortcut == null) ? null : (details) {
             final RenderBox overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
             final position = RelativeRect.fromRect(
               Rect.fromPoints(
@@ -62,6 +64,18 @@ class AppGrid extends StatelessWidget {
                   onTap: () {
                     Navigator.of(context).maybePop();
                     onInstall?.call(e);
+                  },
+                ),
+              );
+            }
+            
+            if (onCreateShortcut != null) {
+              menuItems.add(
+                PopupMenuItem(
+                  child: const Text('Create desktop shortcut'),
+                  onTap: () {
+                    Navigator.of(context).maybePop();
+                    onCreateShortcut?.call(e);
                   },
                 ),
               );
