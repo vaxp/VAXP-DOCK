@@ -5,6 +5,7 @@ import 'package:vaxp_core/models/desktop_entry.dart';
 
 class AppGrid extends StatelessWidget {
   final List<DesktopEntry> apps;
+  final String? iconThemeDir;
   final void Function(DesktopEntry) onLaunch;
   final void Function(DesktopEntry)? onPin;
   final void Function(DesktopEntry)? onInstall;
@@ -15,6 +16,7 @@ class AppGrid extends StatelessWidget {
     super.key, 
     required this.apps, 
     required this.onLaunch,
+    this.iconThemeDir,
     this.onPin,
     this.onInstall,
     this.onCreateShortcut,
@@ -23,6 +25,21 @@ class AppGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Preload theme files if a directory was provided to avoid repeated IO
+    List<File> themeFiles = [];
+    if (iconThemeDir != null) {
+      try {
+        final dir = Directory(iconThemeDir!);
+        if (dir.existsSync()) {
+          themeFiles = dir
+              .listSync(recursive: true)
+              .whereType<File>()
+              .toList();
+        }
+      } catch (e) {
+        // ignore errors and fall back to original icons
+      }
+    }
     return GridView.builder(
       
       padding: const EdgeInsets.all(12),
@@ -119,10 +136,65 @@ class AppGrid extends StatelessWidget {
                 children: [
                   Builder(
                     builder: (context) {
+                      // Try to resolve a themed icon first when available
+                      String? themedPath;
+                      if (themeFiles.isNotEmpty) {
+                        try {
+                          // Build candidate names from desktop entry
+                          final candidates = <String>{};
+                          if (e.iconPath != null && e.iconPath!.isNotEmpty) {
+                            final raw = e.iconPath!;
+                            final fn = raw.split(Platform.pathSeparator).last;
+                            final dot = fn.lastIndexOf('.');
+                            final base = dot > 0 ? fn.substring(0, dot) : fn;
+                            candidates.add(base.toLowerCase());
+                          }
+                          final nameBase = e.name.toLowerCase();
+                          candidates.add(nameBase);
+                          candidates.add(nameBase.replaceAll(' ', '-'));
+                          candidates.add(nameBase.replaceAll(' ', '_'));
+                          candidates.add(nameBase.replaceAll(' ', ''));
+
+                          for (final f in themeFiles) {
+                            final fn = f.path.split(Platform.pathSeparator).last;
+                            final dot = fn.lastIndexOf('.');
+                            final base = dot > 0 ? fn.substring(0, dot) : fn;
+                            final low = base.toLowerCase();
+                            if (candidates.contains(low) || candidates.any((c) => fn.toLowerCase().contains(c))) {
+                              themedPath = f.path;
+                              break;
+                            }
+                          }
+                        } catch (_) {
+                          themedPath = null;
+                        }
+                      }
+
+                      if (themedPath != null) {
+                        // Render themed icon based on its type
+                        if (themedPath.toLowerCase().endsWith('.svg')) {
+                          return ClipRRect(
+                            borderRadius: BorderRadius.circular(28),
+                            child: SvgPicture.file(
+                              File(themedPath),
+                              width: 56,
+                              height: 56,
+                            ),
+                          );
+                        }
+
+                        return CircleAvatar(
+                          backgroundColor: Colors.transparent,
+                          radius: 28,
+                          backgroundImage: FileImage(File(themedPath)),
+                        );
+                      }
+
+                      // Fallback to original icon
                       if (e.iconPath == null) {
                         return const Icon(Icons.apps, size: 48);
                       }
-                      
+
                       if (e.isSvgIcon) {
                         return ClipRRect(
                           borderRadius: BorderRadius.circular(28),
@@ -133,7 +205,7 @@ class AppGrid extends StatelessWidget {
                           ),
                         );
                       }
-                      
+
                       return CircleAvatar(
                         backgroundColor: Colors.transparent,
                         radius: 28,

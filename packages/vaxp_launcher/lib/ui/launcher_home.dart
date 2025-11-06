@@ -39,6 +39,7 @@ class _LauncherHomeState extends State<LauncherHome> {
   Color _backgroundColor = Colors.black;
   double _opacity = 0.7;
   String? _backgroundImagePath;
+  String? _iconThemePath;
 
   final _settings = SettingsService();
   final _gpuService = GpuService();
@@ -63,6 +64,7 @@ class _LauncherHomeState extends State<LauncherHome> {
       _backgroundColor = s.backgroundColor;
       _opacity = s.opacity;
       _backgroundImagePath = s.backgroundImagePath;
+      _iconThemePath = s.iconThemePath;
     });
   }
 
@@ -72,6 +74,7 @@ class _LauncherHomeState extends State<LauncherHome> {
         backgroundColor: _backgroundColor,
         opacity: _opacity,
         backgroundImagePath: _backgroundImagePath,
+        iconThemePath: _iconThemePath,
       ),
     );
   }
@@ -343,10 +346,22 @@ class _LauncherHomeState extends State<LauncherHome> {
     return null;
   }
 
+  Future<String?> _pickIconThemeDirectory() async {
+    try {
+      // Use getDirectoryPath to allow picking a folder containing themed icons
+      final dir = await FilePicker.platform.getDirectoryPath();
+      return dir;
+    } catch (e) {
+      debugPrint('Error picking icon theme directory: $e');
+    }
+    return null;
+  }
+
   void _showSettingsDialog() {
     Color tempColor = _backgroundColor;
     double tempOpacity = _opacity;
     String? tempBackgroundImage = _backgroundImagePath;
+    String? tempIconTheme = _iconThemePath;
 
     showDialog(
       context: context,
@@ -464,6 +479,37 @@ class _LauncherHomeState extends State<LauncherHome> {
                   ),
                 ],
                 const SizedBox(height: 32),
+                // Icon Theme selection
+                const Text('Icon Theme', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.white)),
+                const SizedBox(height: 12),
+                Row(children: [
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: () async {
+                        final dir = await _pickIconThemeDirectory();
+                        if (dir != null) setDialogState(() => tempIconTheme = dir);
+                      },
+                      icon: const Icon(Icons.folder),
+                      label: const Text('Select Icon Theme (directory)'),
+                      style: ElevatedButton.styleFrom(backgroundColor: Colors.blue, foregroundColor: Colors.white),
+                    ),
+                  ),
+                  if (tempIconTheme != null) ...[
+                    const SizedBox(width: 12),
+                    ElevatedButton.icon(
+                      onPressed: () => setDialogState(() => tempIconTheme = null),
+                      icon: const Icon(Icons.delete),
+                      label: const Text('Remove'),
+                      style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
+                    ),
+                  ],
+                ]),
+                const SizedBox(height: 8),
+                Text(
+                  tempIconTheme != null ? tempIconTheme! : 'No icon theme selected',
+                  style: const TextStyle(color: Colors.white70),
+                ),
+                const SizedBox(height: 12),
                 // Preview (image + overlay)
                 Container(
                   padding: const EdgeInsets.all(16),
@@ -501,6 +547,7 @@ class _LauncherHomeState extends State<LauncherHome> {
                         _backgroundColor = tempColor;
                         _opacity = tempOpacity;
                         _backgroundImagePath = tempBackgroundImage;
+                        _iconThemePath = tempIconTheme;
                       });
                       _saveSettings();
                       Navigator.of(context).pop();
@@ -625,6 +672,7 @@ class _LauncherHomeState extends State<LauncherHome> {
                 ? const Center(child: CircularProgressIndicator())
                 : AppGrid(
                     apps: _filteredApps,
+          iconThemeDir: _iconThemePath,
                     onLaunch: _launchEntry,
                     onPin: (e) async {
                       try {
