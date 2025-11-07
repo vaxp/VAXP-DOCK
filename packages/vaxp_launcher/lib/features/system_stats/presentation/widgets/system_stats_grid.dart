@@ -17,10 +17,10 @@ class SystemStatsGrid extends StatelessWidget {
         if (state is SystemStatsLoaded) {
           return GridView.count(
             shrinkWrap: true,
-            crossAxisCount: 4,
-            mainAxisSpacing: 16,
-            crossAxisSpacing: 16,
-            childAspectRatio: 3.2,
+            crossAxisCount: 1,
+            mainAxisSpacing: 2,
+            crossAxisSpacing: 2,
+            childAspectRatio: 10,
             children: [
               StatsCard(
                 title: AppStrings.cpu,
@@ -28,8 +28,7 @@ class SystemStatsGrid extends StatelessWidget {
                 unit: AppStrings.percentage,
                 color: AppColors.cpuColor,
                 icon: CupertinoIcons.settings,
-                child: Text(
-                  state.stats.cpuUsage.toStringAsFixed(1),
+                child: Text('% ${state.stats.cpuUsage.toStringAsFixed(1)}',
                   style: TextStyle(
                     color: AppColors.textPrimary,
                     fontSize: 20,
@@ -43,8 +42,7 @@ class SystemStatsGrid extends StatelessWidget {
                 unit: AppStrings.percentage,
                 color: AppColors.ramColor,
                 icon: Icons.memory,
-                child: Text(
-                  state.stats.memoryUsage.toStringAsFixed(1),
+                child: Text('% ${state.stats.memoryUsage.toStringAsFixed(1)}',
                   style: TextStyle(
                     color: AppColors.textPrimary,
                     fontSize: 20,
@@ -58,8 +56,7 @@ class SystemStatsGrid extends StatelessWidget {
                 unit: AppStrings.networkPerSec,
                 color: AppColors.networkColor,
                 icon: CupertinoIcons.wifi,
-                child: Text(
-                  '${state.stats.networkDownload.toStringAsFixed(1)}/${state.stats.networkUpload.toStringAsFixed(1)}',
+                child: Text('${state.stats.networkDownload.toStringAsFixed(1)}/${state.stats.networkUpload.toStringAsFixed(1)} KB/s ',
                   style: TextStyle(
                     color: AppColors.textPrimary,
                     fontSize: 16,
@@ -73,8 +70,7 @@ class SystemStatsGrid extends StatelessWidget {
                 unit: AppStrings.megabytesPerSec,
                 color: AppColors.diskColor,
                 icon: CupertinoIcons.folder,
-                child: Text(
-                  '${state.stats.diskRead.toStringAsFixed(1)}/${state.stats.diskWrite.toStringAsFixed(1)}',
+                child: Text('${state.stats.diskRead.toStringAsFixed(1)}/${state.stats.diskWrite.toStringAsFixed(1)} MB/s',
                   style: TextStyle(
                     color: AppColors.textPrimary,
                     fontSize: 14,

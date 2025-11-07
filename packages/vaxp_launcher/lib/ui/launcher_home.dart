@@ -17,6 +17,7 @@ import '../services/settings_service.dart';
 import '../services/gpu_service.dart';
 import '../services/package_service.dart';
 import '../services/shortcut_service.dart';
+import '../services/workspace_service.dart';
 
 class LauncherHome extends StatefulWidget {
   const LauncherHome({super.key});
@@ -45,6 +46,9 @@ class _LauncherHomeState extends State<LauncherHome> {
   final _gpuService = GpuService();
   final _pkgService = PackageService();
   final _shortcutService = ShortcutService();
+  final _workspaceService = WorkspaceService();
+
+  List<Workspace> _workspaces = [];
 
   @override
   void initState() {
@@ -55,6 +59,27 @@ class _LauncherHomeState extends State<LauncherHome> {
     _connectToDockService();
     _setupDockSignalListeners();
     _loadSettings();
+    _loadWorkspaces();
+  }
+
+  Future<void> _loadWorkspaces() async {
+    try {
+      final list = await _workspaceService.listWorkspaces();
+      if (!mounted) return;
+      setState(() => _workspaces = list);
+    } catch (e) {
+      debugPrint('Failed to load workspaces: $e');
+    }
+  }
+
+  Future<void> _switchToWorkspace(int idx) async {
+    final ok = await _workspaceService.switchTo(idx);
+    if (!ok) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not switch workspace: utility not found')));
+    } else {
+      await _loadWorkspaces();
+    }
   }
 
   Future<void> _loadSettings() async {
@@ -656,17 +681,73 @@ class _LauncherHomeState extends State<LauncherHome> {
               ],
             ),
           ),
-          // System stats grid below the search bar (provide its Cubit)
-          Padding(
+          // Workspace cards strip
+          Row(
+            children: [
+           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16.0),
             child: SizedBox(
               height: 220,
+              width: MediaQuery.of(context).size.width/4,
               child: BlocProvider<SystemStatsCubit>(
                 create: (_) => SystemStatsCubit(SystemStatsRepository()),
                 child: SystemStatsGrid(),
               ),
             ),
           ),
+              Expanded(
+                child: SizedBox(
+                  height: 120,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                    child: _workspaces.isEmpty
+                        ? const SizedBox.shrink()
+                        : ListView.separated(
+                            scrollDirection: Axis.horizontal,
+                            itemCount: _workspaces.length,
+                            separatorBuilder: (_, __) => const SizedBox(width: 12),
+                            itemBuilder: (context, idx) {
+                              final w = _workspaces[idx];
+                              return GestureDetector(
+                                onTap: () => _switchToWorkspace(w.index),
+                                child: Container(
+                                  width: 220,
+                                  decoration: BoxDecoration(
+                                    color: w.isCurrent ? Colors.white10 : Colors.white12,
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(color: w.isCurrent ? Colors.blue : Colors.transparent, width: 2),
+                                  ),
+                                  padding: const EdgeInsets.all(12),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Expanded(
+                                        child: Container(
+                                          width: double.infinity,
+                                          decoration: BoxDecoration(
+                                            color: Colors.black26,
+                                            borderRadius: BorderRadius.circular(8),
+                                          ),
+                                          child: Center(
+                                            child: Text('Workspace ${w.index + 1}', style: const TextStyle(color: Colors.white70)),
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Text(w.name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          // System stats grid below the search bar (provide its Cubit)
+
           Expanded(
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())

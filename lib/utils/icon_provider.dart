@@ -1,18 +1,29 @@
 import 'dart:io';
-// import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+/// نموذج لتطبيق مكتشف من ملفات .desktop
+class DesktopApp {
+  final String name;
+  final String exec;
+  final String? iconPath;
+
+  DesktopApp({
+    required this.name,
+    required this.exec,
+    this.iconPath,
+  });
+}
+
+/// فئة لإدارة الأيقونات (من كودك الأصلي مع تحسينات طفيفة)
 class IconProvider {
-  /// Find an icon file in the system icon theme
   static String? findIcon(String iconName) {
     if (iconName.isEmpty) return null;
-    
-    // 1. If it's an absolute path, try it directly
+
+    // إذا كان مسار مطلق
     if (iconName.startsWith('/') && File(iconName).existsSync()) {
       return iconName;
     }
-    
-    // 2. Additional system icon paths
+
     final systemPaths = [
       '/usr/share/icons',
       '/usr/local/share/icons',
@@ -20,128 +31,146 @@ class IconProvider {
       '/usr/local/share/pixmaps',
       '${Platform.environment['HOME']}/.icons',
       '${Platform.environment['HOME']}/.local/share/icons',
-      '/var/lib/flatpak/exports/share/icons',  // Flatpak icons
+      '/var/lib/flatpak/exports/share/icons',
       '${Platform.environment['HOME']}/.local/share/flatpak/exports/share/icons',
-      '/var/lib/snapd/desktop/icons',  // Snap icons
-    ].where((path) => Directory(path).existsSync()).toList();
-    
-    // 3. Theme search order (similar to GTK implementation)
+      '/var/lib/snapd/desktop/icons',
+    ].where((p) => Directory(p).existsSync()).toList();
+
     final themeSearchOrder = [
       _detectIconTheme(),
       'hicolor',
       'Adwaita',
-      'gnome',
-      'oxygen',
-      'Humanity',
-      'elementary',
       'breeze',
       'Papirus',
       'Numix',
+      'elementary',
       'default',
-    ].where((theme) => theme != null).toSet().toList();
-    
-    // 4. Icon sizes to check (larger first for better quality)
-    final sizes = ['512x512', '256x256', '128x128', '96x96', '72x72', '64x64', '48x48', '32x32', '24x24', '22x22', '16x16', 'scalable'];
-    
-    // 5. Icon categories to check
-    final categories = ['apps', 'actions', 'devices', 'categories', 'places', 'status', 'emblems', 'mimetypes'];
-    
-    // 6. Extensions to try
+    ].whereType<String>().toList();
+
+    final sizes = [
+      '512x512', '256x256', '128x128', '96x96',
+      '64x64', '48x48', '32x32', '24x24', '16x16', 'scalable'
+    ];
+    final categories = [
+      'apps', 'actions', 'devices', 'categories',
+      'places', 'status', 'emblems', 'mimetypes'
+    ];
     final extensions = ['.svg', '.png', '.xpm'];
-    
-    // Search for icon
-    for (final basePath in systemPaths) {
+
+    for (final base in systemPaths) {
       for (final theme in themeSearchOrder) {
-        final themePath = '$basePath/$theme';
-        if (!Directory(themePath).existsSync()) continue;
-
-        // Try each size directory
         for (final size in sizes) {
-          for (final category in categories) {
-            final sizeDir = '$themePath/$size/$category';
-            if (!Directory(sizeDir).existsSync()) continue;
-
-            // Try with extensions
+          for (final cat in categories) {
             for (final ext in extensions) {
-              final path = '$sizeDir/$iconName$ext';
-              if (File(path).existsSync()) {
-                return path;
-              }
-            }
-
-            // Try without extension
-            final path = '$sizeDir/$iconName';
-            if (File(path).existsSync()) {
-              return path;
+              final path = '$base/$theme/$size/$cat/$iconName$ext';
+              if (File(path).existsSync()) return path;
             }
           }
         }
       }
     }
 
-    // Check pixmaps directory as fallback
+    // fallback: pixmaps
     for (final ext in extensions) {
-      final pixmapPath = '/usr/share/pixmaps/$iconName$ext';
-      if (File(pixmapPath).existsSync()) {
-        return pixmapPath;
-      }
-    }
-
-    // Try pixmaps without extension
-    final pixmapPath = '/usr/share/pixmaps/$iconName';
-    if (File(pixmapPath).existsSync()) {
-      return pixmapPath;
+      final pix = '/usr/share/pixmaps/$iconName$ext';
+      if (File(pix).existsSync()) return pix;
     }
 
     return null;
   }
 
-  /// Get an ImageProvider for the icon file
-  static ImageProvider<Object>? getIcon(String iconName) {
-    final path = findIcon(iconName);
-    if (path != null) {
-      return FileImage(File(path));
-    }
-    return null;
-  }
-
-  // Icon theme detection
   static String? _detectIconTheme() {
     try {
-      // Try gsettings first (GNOME/Ubuntu)
-      final result = Process.runSync('gsettings', ['get', 'org.gnome.desktop.interface', 'icon-theme']);
-      if (result.exitCode == 0) {
-        final theme = result.stdout.toString().trim()
-            .replaceAll("'", '')
-            .replaceAll('"', '');
-        if (theme.isNotEmpty && theme != 'default') {
-          return theme;
-        }
+      final res = Process.runSync(
+        'gsettings',
+        ['get', 'org.gnome.desktop.interface', 'icon-theme'],
+      );
+      if (res.exitCode == 0) {
+        final theme = res.stdout.toString().trim().replaceAll("'", '');
+        if (theme.isNotEmpty) return theme;
       }
     } catch (_) {}
 
     try {
-      // Try GTK settings
       final home = Platform.environment['HOME'];
       if (home != null) {
-        final configFile = File('$home/.config/gtk-3.0/settings.ini');
-        if (configFile.existsSync()) {
-          final content = configFile.readAsStringSync();
-          final match = RegExp(r'gtk-icon-theme-name\s*=\s*([^\s]+)', caseSensitive: false)
+        final gtkFile = File('$home/.config/gtk-3.0/settings.ini');
+        if (gtkFile.existsSync()) {
+          final content = gtkFile.readAsStringSync();
+          final match = RegExp(r'gtk-icon-theme-name\s*=\s*(.+)')
               .firstMatch(content);
-          if (match != null && match.group(1) != null) {
-            final theme = match.group(1)!
-                .replaceAll('"', '')
-                .replaceAll("'", '');
-            if (theme.isNotEmpty && theme != 'default') {
-              return theme;
-            }
+          if (match != null) {
+            return match.group(1)?.trim();
           }
         }
       }
     } catch (_) {}
 
-    // Default to null, will fall back to hicolor
     return null;
+  }
+
+  static ImageProvider<Object>? getIcon(String iconName) {
+    final path = findIcon(iconName);
+    if (path != null) return FileImage(File(path));
+    return null;
+  }
+}
+
+/// فئة لقراءة ملفات .desktop واستخلاص التطبيقات (مثل GNOME Launcher)
+class DesktopEntryScanner {
+  static List<DesktopApp> scanSystemApplications() {
+    final appDirs = [
+      '/usr/share/applications',
+      '/usr/local/share/applications',
+      '${Platform.environment['HOME']}/.local/share/applications',
+    ];
+
+    final apps = <DesktopApp>[];
+
+    for (final dirPath in appDirs) {
+      final dir = Directory(dirPath);
+      if (!dir.existsSync()) continue;
+
+      for (final file in dir.listSync()) {
+        if (!file.path.endsWith('.desktop')) continue;
+
+        try {
+          final lines = File(file.path).readAsLinesSync();
+          String? name;
+          String? exec;
+          String? icon;
+
+          for (final line in lines) {
+            if (line.startsWith('Name=')) name = line.substring(5).trim();
+            if (line.startsWith('Exec=')) {
+              exec = line.substring(5).trim().split(' ').first;
+            }
+            if (line.startsWith('Icon=')) icon = line.substring(5).trim();
+          }
+
+          if (name != null && exec != null) {
+            final iconPath = (icon != null)
+                ? (IconProvider.findIcon(icon) ?? icon)
+                : null;
+
+            apps.add(DesktopApp(
+              name: name,
+              exec: exec,
+              iconPath: iconPath,
+            ));
+          }
+        } catch (_) {
+          // تجاهل الملفات التالفة أو المشفرة
+        }
+      }
+    }
+
+    // إزالة التكرار حسب الاسم
+    final unique = <String, DesktopApp>{};
+    for (final app in apps) {
+      unique[app.name] = app;
+    }
+
+    return unique.values.toList();
   }
 }
