@@ -599,7 +599,7 @@ class _ContextMenuTileState extends State<_ContextMenuTile> {
 }
 
 class _AppGridState extends State<AppGrid> {
-  static const int itemsPerPage = 32; // 8 columns × 4 rows
+  static const int itemsPerPage = 40; // 10 columns × 4 rows
   int _currentPage = 0;
   List<File> _themeFiles = [];
   late int _totalPages;
@@ -762,21 +762,21 @@ class _AppGridState extends State<AppGrid> {
                   children: [
                     Padding(
                       padding: EdgeInsets.only(
-                        left: size.width * 0.083,
-                        right: size.width * 0.083,
+                        left: size.width * 0.183,
+                        right: size.width * 0.183,
                       ),
                       child: GridView.builder(
-                        physics: const NeverScrollableScrollPhysics(),
+                        // physics: const NeverScrollableScrollPhysics(),
                         padding: const EdgeInsets.symmetric(
                           horizontal: 8,
                           vertical: 12,
                         ),
                         gridDelegate:
                             const SliverGridDelegateWithFixedCrossAxisCount(
-                              crossAxisCount: 8,
-                              crossAxisSpacing: 24,
+                              crossAxisCount: 6,
+                              crossAxisSpacing: 32,
                               mainAxisSpacing: 32,
-                              childAspectRatio: 0.85,
+                              childAspectRatio: 2,
                             ),
                         itemCount: pageApps.length,
                         itemBuilder: (context, index) {
