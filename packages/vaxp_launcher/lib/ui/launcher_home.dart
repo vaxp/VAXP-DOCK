@@ -20,6 +20,7 @@ import '../services/gpu_service.dart';
 import '../services/package_service.dart';
 import '../services/shortcut_service.dart';
 import '../services/workspace_service.dart';
+import '../con/controlcenterpage.dart';
 
 class LauncherHome extends StatefulWidget {
   const LauncherHome({super.key});
@@ -333,6 +334,7 @@ class _LauncherHomeState extends State<LauncherHome> {
 
   List<Workspace> _workspaces = [];
   int? _hoveredWorkspace;
+  Set<String> _runningAppNames = {}; // Track running apps by name
 
   @override
   void initState() {
@@ -558,6 +560,13 @@ class _LauncherHomeState extends State<LauncherHome> {
           // Register with the actual PID
           await _dockService.registerRunningApp(entry, actualPid);
           
+          // Mark app as running in launcher
+          if (mounted) {
+            setState(() {
+              _runningAppNames.add(entry.name);
+            });
+          }
+          
           // Monitor the process and unregister when it exits
           // Check periodically if the process is still running
           _monitorProcess(actualPid, entry.name);
@@ -598,6 +607,12 @@ class _LauncherHomeState extends State<LauncherHome> {
           } catch (e) {
             debugPrint('Failed to unregister $appName from dock: $e');
           }
+          // Remove from running apps in launcher
+          if (mounted) {
+            setState(() {
+              _runningAppNames.remove(appName);
+            });
+          }
           return;
         }
         
@@ -609,6 +624,12 @@ class _LauncherHomeState extends State<LauncherHome> {
           await _dockService.unregisterRunningApp(pid);
         } catch (e2) {
           debugPrint('Failed to unregister $appName from dock: $e2');
+        }
+        // Remove from running apps in launcher
+        if (mounted) {
+          setState(() {
+            _runningAppNames.remove(appName);
+          });
         }
       }
     });
@@ -1404,6 +1425,15 @@ class _LauncherHomeState extends State<LauncherHome> {
                       ),
                     ),
                   ),
+                  // Control Center next to workspaces
+                  Padding(
+                    padding: const EdgeInsets.only(right: 16.0),
+                    child: SizedBox(
+                      height: 120,
+                      width: 400,
+                      child: ControlCenterPage(),
+                    ),
+                  ),
                 ],
               ),
 
@@ -1414,6 +1444,7 @@ class _LauncherHomeState extends State<LauncherHome> {
                     : AppGrid(
                         apps: _filteredApps,
                         iconThemeDir: _iconThemePath,
+                        runningAppNames: _runningAppNames,
                         onLaunch: _launchEntry,
                         onPin: (e) async {
                           try {

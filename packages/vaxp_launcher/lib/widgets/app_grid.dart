@@ -14,6 +14,7 @@ const double _kDotSpacing = 8.0;
 class AppGrid extends StatefulWidget {
   final List<DesktopEntry> apps;
   final String? iconThemeDir;
+  final Set<String> runningAppNames;
   final void Function(DesktopEntry) onLaunch;
   final void Function(DesktopEntry)? onPin;
   final void Function(DesktopEntry)? onInstall;
@@ -25,6 +26,7 @@ class AppGrid extends StatefulWidget {
     required this.apps,
     required this.onLaunch,
     this.iconThemeDir,
+    this.runningAppNames = const {},
     this.onPin,
     this.onInstall,
     this.onCreateShortcut,
@@ -39,6 +41,7 @@ class AppIconTile extends StatefulWidget {
   final DesktopEntry entry;
   final String? iconPath;
   final bool isSvgIcon;
+  final bool isRunning;
   final VoidCallback onLaunch;
   final void Function(DesktopEntry)? onPin;
   final void Function(DesktopEntry)? onUninstall;
@@ -51,6 +54,7 @@ class AppIconTile extends StatefulWidget {
     required this.onLaunch,
     this.iconPath,
     required this.isSvgIcon,
+    this.isRunning = false,
     this.onPin,
     this.onUninstall,
     this.onCreateShortcut,
@@ -290,7 +294,7 @@ class _AppIconTileState extends State<AppIconTile>
       height: 80,
       fit: BoxFit.contain,
       errorBuilder: (_, __, ___) =>
-          const Icon(Icons.apps, size: 64, color: Colors.white70),
+          const Icon(Icons.apps, size: 68, color: Colors.white70),
     );
   }
 
@@ -329,17 +333,41 @@ class _AppIconTileState extends State<AppIconTile>
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Container(
-                    decoration: BoxDecoration(
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(shadowOpacity),
-                          blurRadius: shadowBlur,
-                          offset: const Offset(0, 4),
+                  Stack(
+                    alignment: Alignment.bottomCenter,
+                    children: [
+                      Container(
+                        decoration: BoxDecoration(
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(shadowOpacity),
+                              blurRadius: shadowBlur,
+                              offset: const Offset(0, 6),
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
-                    child: _buildIcon(),
+                        child: _buildIcon(),
+                      ),
+                      if (widget.isRunning)
+                        Positioned(
+                          bottom: 1,
+                          child: Container(
+                            width: 8,
+                            height: 8,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: Colors.greenAccent,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.greenAccent.withOpacity(0.8),
+                                  blurRadius: 8,
+                                  spreadRadius: 2,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
                   const SizedBox(height: 12),
                   Padding(
@@ -792,6 +820,7 @@ class _AppGridState extends State<AppGrid> {
                             entry: entry,
                             iconPath: iconPath,
                             isSvgIcon: isSvg,
+                            isRunning: widget.runningAppNames.contains(entry.name),
                             onLaunch: () => widget.onLaunch(entry),
                             onPin: widget.onPin,
                             onUninstall: widget.onInstall,
