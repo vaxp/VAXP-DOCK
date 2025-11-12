@@ -599,7 +599,7 @@ class _ContextMenuTileState extends State<_ContextMenuTile> {
 }
 
 class _AppGridState extends State<AppGrid> {
-  static const int itemsPerPage = 40; // 10 columns × 4 rows
+  static const int itemsPerPage = 24; // 6 columns × 4 rows
   int _currentPage = 0;
   List<File> _themeFiles = [];
   late int _totalPages;
@@ -762,6 +762,7 @@ class _AppGridState extends State<AppGrid> {
                   children: [
                     Padding(
                       padding: EdgeInsets.only(
+                        top: size.height * 0.043,
                         left: size.width * 0.183,
                         right: size.width * 0.183,
                       ),
@@ -776,7 +777,7 @@ class _AppGridState extends State<AppGrid> {
                               crossAxisCount: 6,
                               crossAxisSpacing: 32,
                               mainAxisSpacing: 32,
-                              childAspectRatio: 2,
+                              childAspectRatio: 1.5,
                             ),
                         itemCount: pageApps.length,
                         itemBuilder: (context, index) {
