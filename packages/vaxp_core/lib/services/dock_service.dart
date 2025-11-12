@@ -12,6 +12,8 @@ class _VaxpDockObject extends DBusObject {
   final void Function(String name)? onUnpinRequest;
   final void Function()? onShowLauncher;
   final void Function(String state)? onLauncherState;
+  final void Function(String name, String exec, String? iconPath, bool isSvgIcon, int pid)? onRegisterRunningApp;
+  final void Function(int pid)? onUnregisterRunningApp;
 
   _VaxpDockObject(
     DBusObjectPath path, {
@@ -19,6 +21,8 @@ class _VaxpDockObject extends DBusObject {
     this.onUnpinRequest,
     this.onShowLauncher,
     this.onLauncherState,
+    this.onRegisterRunningApp,
+    this.onUnregisterRunningApp,
   }) : super(path);
 
   @override
@@ -44,6 +48,20 @@ class _VaxpDockObject extends DBusObject {
           DBusIntrospectMethod(
             'ReportLauncherState',
             args: [DBusIntrospectArgument(DBusSignature('s'), DBusArgumentDirection.in_)],
+          ),
+          DBusIntrospectMethod(
+            'RegisterRunningApp',
+            args: [
+              DBusIntrospectArgument(DBusSignature('s'), DBusArgumentDirection.in_),
+              DBusIntrospectArgument(DBusSignature('s'), DBusArgumentDirection.in_),
+              DBusIntrospectArgument(DBusSignature('s'), DBusArgumentDirection.in_),
+              DBusIntrospectArgument(DBusSignature('b'), DBusArgumentDirection.in_),
+              DBusIntrospectArgument(DBusSignature('i'), DBusArgumentDirection.in_),
+            ],
+          ),
+          DBusIntrospectMethod(
+            'UnregisterRunningApp',
+            args: [DBusIntrospectArgument(DBusSignature('i'), DBusArgumentDirection.in_)],
           ),
         ],
         signals: [
@@ -96,6 +114,24 @@ class _VaxpDockObject extends DBusObject {
         }
         return DBusMethodSuccessResponse([]);
 
+      case 'RegisterRunningApp':
+        if (onRegisterRunningApp != null && methodCall.values.length == 5) {
+          final name = (methodCall.values[0] as DBusString).value;
+          final exec = (methodCall.values[1] as DBusString).value;
+          final iconPath = (methodCall.values[2] as DBusString).value;
+          final isSvgIcon = (methodCall.values[3] as DBusBoolean).value;
+          final pid = (methodCall.values[4] as DBusInt32).value;
+          onRegisterRunningApp!(name, exec, iconPath.isEmpty ? null : iconPath, isSvgIcon, pid);
+        }
+        return DBusMethodSuccessResponse([]);
+
+      case 'UnregisterRunningApp':
+        if (onUnregisterRunningApp != null && methodCall.values.length == 1) {
+          final pid = (methodCall.values[0] as DBusInt32).value;
+          onUnregisterRunningApp!(pid);
+        }
+        return DBusMethodSuccessResponse([]);
+
       default:
         return DBusMethodErrorResponse.unknownMethod();
     }
@@ -110,6 +146,8 @@ class VaxpDockService {
   void Function(String name)? _onUnpinRequest;
   void Function()? _onShowLauncher;
   void Function(String state)? _onLauncherState;
+  void Function(String name, String exec, String? iconPath, bool isSvgIcon, int pid)? _onRegisterRunningApp;
+  void Function(int pid)? _onUnregisterRunningApp;
 
   VaxpDockService({DBusClient? client}) : _client = client ?? DBusClient.session() {
     _object = _VaxpDockObject(
@@ -118,6 +156,8 @@ class VaxpDockService {
       onUnpinRequest: (name) => _onUnpinRequest?.call(name),
       onShowLauncher: () => _onShowLauncher?.call(),
       onLauncherState: (state) => _onLauncherState?.call(state),
+      onRegisterRunningApp: (name, exec, iconPath, isSvgIcon, pid) => _onRegisterRunningApp?.call(name, exec, iconPath, isSvgIcon, pid),
+      onUnregisterRunningApp: (pid) => _onUnregisterRunningApp?.call(pid),
     );
   }
 
@@ -136,6 +176,14 @@ class VaxpDockService {
 
   set onLauncherState(void Function(String state)? callback) {
     _onLauncherState = callback;
+  }
+
+  set onRegisterRunningApp(void Function(String name, String exec, String? iconPath, bool isSvgIcon, int pid)? callback) {
+    _onRegisterRunningApp = callback;
+  }
+
+  set onUnregisterRunningApp(void Function(int pid)? callback) {
+    _onUnregisterRunningApp = callback;
   }
 
   /// Report the launcher's state to the dock (client-side call to the server)
@@ -224,6 +272,34 @@ class VaxpDockService {
       interface: vaxpInterfaceName,
       name: 'RestoreWindow',
       values: [DBusString(name)],
+    );
+  }
+
+  /// Register a running application with the dock
+  Future<void> registerRunningApp(DesktopEntry entry, int pid) async {
+    await _client.callMethod(
+      destination: vaxpBusName,
+      path: DBusObjectPath(vaxpObjectPath),
+      interface: vaxpInterfaceName,
+      name: 'RegisterRunningApp',
+      values: [
+        DBusString(entry.name),
+        DBusString(entry.exec ?? ''),
+        DBusString(entry.iconPath ?? ''),
+        DBusBoolean(entry.isSvgIcon),
+        DBusInt32(pid),
+      ],
+    );
+  }
+
+  /// Unregister a running application from the dock
+  Future<void> unregisterRunningApp(int pid) async {
+    await _client.callMethod(
+      destination: vaxpBusName,
+      path: DBusObjectPath(vaxpObjectPath),
+      interface: vaxpInterfaceName,
+      name: 'UnregisterRunningApp',
+      values: [DBusInt32(pid)],
     );
   }
 

@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:dbus/dbus.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:vaxp_core/models/desktop_entry.dart';
@@ -26,6 +28,287 @@ class LauncherHome extends StatefulWidget {
   State<LauncherHome> createState() => _LauncherHomeState();
 }
 
+class _GlassDialogShell extends StatelessWidget {
+  const _GlassDialogShell({
+    required this.child,
+    required this.title,
+    required this.onClose,
+    this.width = 520,
+  });
+
+  final Widget child;
+  final String title;
+  final VoidCallback onClose;
+  final double width;
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(28),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+        child: Container(
+          width: width,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(28),
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Colors.white.withOpacity(0.18),
+                const Color(0xFF0E141F).withOpacity(0.88),
+              ],
+            ),
+            border: Border.all(color: Colors.white.withOpacity(0.14)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.45),
+                blurRadius: 36,
+                spreadRadius: -18,
+                offset: const Offset(0, 28),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(26, 20, 20, 12),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        title,
+                        style: const TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                          letterSpacing: 0.3,
+                        ),
+                      ),
+                    ),
+                    _GlassIconButton(icon: Icons.close_rounded, onTap: onClose),
+                  ],
+                ),
+              ),
+              child,
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _GlassSection extends StatelessWidget {
+  const _GlassSection({
+    required this.title,
+    required this.child,
+    this.subtitle,
+  });
+
+  final String title;
+  final String? subtitle;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(22),
+        gradient: LinearGradient(
+          colors: [
+            Colors.white.withOpacity(0.1),
+            Colors.black.withOpacity(0.35),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        border: Border.all(color: Colors.white.withOpacity(0.1)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.25),
+            blurRadius: 26,
+            spreadRadius: -16,
+            offset: const Offset(0, 18),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.2,
+            ),
+          ),
+          if (subtitle != null) ...[
+            const SizedBox(height: 6),
+            Text(
+              subtitle!,
+              style: const TextStyle(color: Colors.white70, fontSize: 13),
+            ),
+          ],
+          const SizedBox(height: 18),
+          child,
+        ],
+      ),
+    );
+  }
+}
+
+class _GlassButton extends StatefulWidget {
+  const _GlassButton({
+    required this.icon,
+    required this.label,
+    required this.onPressed,
+    this.accent = const Color(0xFF2D9CFF),
+    this.destructive = false,
+    this.filled = true,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onPressed;
+  final Color accent;
+  final bool destructive;
+  final bool filled;
+
+  @override
+  State<_GlassButton> createState() => _GlassButtonState();
+}
+
+class _GlassButtonState extends State<_GlassButton> {
+  bool _hovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final Color baseAccent = widget.destructive
+        ? Colors.redAccent
+        : widget.accent;
+    final bool filled = widget.filled || widget.destructive;
+
+    final gradientColors = filled
+        ? [
+            baseAccent.withOpacity(_hovered ? 0.94 : 0.82),
+            baseAccent.withOpacity(_hovered ? 0.62 : 0.46),
+          ]
+        : [
+            Colors.white.withOpacity(_hovered ? 0.18 : 0.12),
+            Colors.white.withOpacity(_hovered ? 0.06 : 0.02),
+          ];
+
+    final borderColor = filled
+        ? baseAccent.withOpacity(_hovered ? 0.42 : 0.3)
+        : Colors.white.withOpacity(_hovered ? 0.28 : 0.18);
+
+    final textColor = filled ? Colors.white : Colors.white.withOpacity(0.9);
+
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: widget.onPressed,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOutCubic,
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: gradientColors,
+            ),
+            border: Border.all(color: borderColor, width: 1),
+            boxShadow: [
+              BoxShadow(
+                color: filled
+                    ? baseAccent.withOpacity(0.28)
+                    : Colors.black.withOpacity(0.2),
+                blurRadius: filled ? 22 : 18,
+                spreadRadius: -10,
+                offset: const Offset(0, 16),
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(widget.icon, size: 18, color: textColor),
+              const SizedBox(width: 10),
+              Flexible(
+                child: Text(
+                  widget.label,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: textColor,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.2,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _GlassIconButton extends StatefulWidget {
+  const _GlassIconButton({required this.icon, required this.onTap});
+
+  final IconData icon;
+  final VoidCallback onTap;
+
+  @override
+  State<_GlassIconButton> createState() => _GlassIconButtonState();
+}
+
+class _GlassIconButtonState extends State<_GlassIconButton> {
+  bool _hovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 160),
+          curve: Curves.easeOutCubic,
+          width: 36,
+          height: 36,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: Colors.white.withOpacity(_hovered ? 0.22 : 0.12),
+            border: Border.all(
+              color: Colors.white.withOpacity(_hovered ? 0.35 : 0.18),
+              width: 0.9,
+            ),
+          ),
+          child: Icon(
+            widget.icon,
+            size: 18,
+            color: Colors.white.withOpacity(0.85),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _LauncherHomeState extends State<LauncherHome> {
   late Future<List<DesktopEntry>> _allAppsFuture;
   final _searchController = TextEditingController();
@@ -49,6 +332,7 @@ class _LauncherHomeState extends State<LauncherHome> {
   final _workspaceService = WorkspaceService();
 
   List<Workspace> _workspaces = [];
+  int? _hoveredWorkspace;
 
   @override
   void initState() {
@@ -76,7 +360,11 @@ class _LauncherHomeState extends State<LauncherHome> {
     final ok = await _workspaceService.switchTo(idx);
     if (!ok) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not switch workspace: utility not found')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Could not switch workspace: utility not found'),
+        ),
+      );
     } else {
       await _loadWorkspaces();
     }
@@ -134,43 +422,45 @@ class _LauncherHomeState extends State<LauncherHome> {
     try {
       _dbusClient = DBusClient.session();
 
-      _minimizeSub = DBusSignalStream(
-        _dbusClient,
-        interface: vaxpInterfaceName,
-        name: 'MinimizeWindow',
-        signature: DBusSignature('s'),
-      ).asBroadcastStream().listen((signal) async {
-        try {
-          await windowManager.minimize();
-          try {
-            await _dockService.reportLauncherState('minimized');
-          } catch (e) {
-            debugPrint('Failed to report minimized state to dock: $e');
-          }
-        } catch (e, st) {
-          debugPrint('Error handling MinimizeWindow signal: $e\n$st');
-        }
-      });
+      _minimizeSub =
+          DBusSignalStream(
+            _dbusClient,
+            interface: vaxpInterfaceName,
+            name: 'MinimizeWindow',
+            signature: DBusSignature('s'),
+          ).asBroadcastStream().listen((signal) async {
+            try {
+              await windowManager.minimize();
+              try {
+                await _dockService.reportLauncherState('minimized');
+              } catch (e) {
+                debugPrint('Failed to report minimized state to dock: $e');
+              }
+            } catch (e, st) {
+              debugPrint('Error handling MinimizeWindow signal: $e\n$st');
+            }
+          });
 
-      _restoreSub = DBusSignalStream(
-        _dbusClient,
-        interface: vaxpInterfaceName,
-        name: 'RestoreWindow',
-        signature: DBusSignature('s'),
-      ).asBroadcastStream().listen((signal) async {
-        try {
-          await windowManager.restore();
-          await windowManager.show();
-          await windowManager.focus();
-          try {
-            await _dockService.reportLauncherState('visible');
-          } catch (e) {
-            debugPrint('Failed to report visible state to dock: $e');
-          }
-        } catch (e, st) {
-          debugPrint('Error handling RestoreWindow signal: $e\n$st');
-        }
-      });
+      _restoreSub =
+          DBusSignalStream(
+            _dbusClient,
+            interface: vaxpInterfaceName,
+            name: 'RestoreWindow',
+            signature: DBusSignature('s'),
+          ).asBroadcastStream().listen((signal) async {
+            try {
+              await windowManager.restore();
+              await windowManager.show();
+              await windowManager.focus();
+              try {
+                await _dockService.reportLauncherState('visible');
+              } catch (e) {
+                debugPrint('Failed to report visible state to dock: $e');
+              }
+            } catch (e, st) {
+              debugPrint('Error handling RestoreWindow signal: $e\n$st');
+            }
+          });
     } catch (e) {
       debugPrint('Failed to set up dock signal listeners: $e');
     }
@@ -197,7 +487,9 @@ class _LauncherHomeState extends State<LauncherHome> {
         _filteredApps = apps;
       } else {
         _filteredApps = apps
-            .where((app) => app.name.toLowerCase().contains(query.toLowerCase()))
+            .where(
+              (app) => app.name.toLowerCase().contains(query.toLowerCase()),
+            )
             .toList();
       }
       _isLoading = false;
@@ -208,13 +500,18 @@ class _LauncherHomeState extends State<LauncherHome> {
     _allAppsFuture.then((apps) {
       setState(() {
         _filteredApps = apps
-            .where((app) => app.name.toLowerCase().contains(query.toLowerCase()))
+            .where(
+              (app) => app.name.toLowerCase().contains(query.toLowerCase()),
+            )
             .toList();
       });
     });
   }
 
-  Future<void> _launchEntry(DesktopEntry entry, {bool useExternalGPU = false}) async {
+  Future<void> _launchEntry(
+    DesktopEntry entry, {
+    bool useExternalGPU = false,
+  }) async {
     final cmd = entry.exec;
     if (cmd == null) return;
     final cleaned = cmd.replaceAll(RegExp(r'%[a-zA-Z]'), '').trim();
@@ -225,7 +522,51 @@ class _LauncherHomeState extends State<LauncherHome> {
         : cleaned;
 
     try {
-      await Process.start('/bin/sh', ['-c', finalCmd]);
+      // Start the process and get its PID
+      final process = await Process.start('/bin/sh', ['-c', finalCmd]);
+      final shellPid = process.pid;
+      
+      // Register the running app with the dock
+      try {
+        await _dockService.ensureClientConnection();
+        
+        // Try to get the actual application PID after a short delay
+        // This handles cases where the shell launches a detached process
+        Future.delayed(const Duration(milliseconds: 500), () async {
+          int actualPid = shellPid;
+          
+          // Try to find the process by extracting the command name
+          try {
+            final cmdName = cleaned.split(' ').first.split('/').last;
+            if (cmdName.isNotEmpty && cmdName != 'sh' && cmdName != 'bash') {
+              // Try to find the process by name
+              final pgrepResult = await Process.run('pgrep', ['-f', cmdName]);
+              if (pgrepResult.exitCode == 0) {
+                final pids = (pgrepResult.stdout as String).trim().split('\n');
+                if (pids.isNotEmpty && pids[0].isNotEmpty) {
+                  final foundPid = int.tryParse(pids[0]);
+                  if (foundPid != null && foundPid != shellPid) {
+                    actualPid = foundPid;
+                  }
+                }
+              }
+            }
+          } catch (e) {
+            debugPrint('Could not find actual PID, using shell PID: $e');
+          }
+          
+          // Register with the actual PID
+          await _dockService.registerRunningApp(entry, actualPid);
+          
+          // Monitor the process and unregister when it exits
+          // Check periodically if the process is still running
+          _monitorProcess(actualPid, entry.name);
+        });
+      } catch (e) {
+        debugPrint('Failed to register app with dock: $e');
+        // Continue even if dock registration fails
+      }
+      
       await windowManager.minimize();
       try {
         await _dockService.reportLauncherState('minimized');
@@ -242,6 +583,35 @@ class _LauncherHomeState extends State<LauncherHome> {
 
   Future<void> _launchWithExternalGPU(DesktopEntry entry) async {
     await _launchEntry(entry, useExternalGPU: true);
+  }
+
+  /// Monitor a process and unregister it from the dock when it exits
+  void _monitorProcess(int pid, String appName) {
+    Future.delayed(const Duration(seconds: 2), () async {
+      try {
+        // Check if process still exists
+        final procFile = File('/proc/$pid/stat');
+        if (!await procFile.exists()) {
+          // Process has exited, unregister from dock
+          try {
+            await _dockService.unregisterRunningApp(pid);
+          } catch (e) {
+            debugPrint('Failed to unregister $appName from dock: $e');
+          }
+          return;
+        }
+        
+        // Process still running, check again later
+        _monitorProcess(pid, appName);
+      } catch (e) {
+        // Process likely doesn't exist, unregister
+        try {
+          await _dockService.unregisterRunningApp(pid);
+        } catch (e2) {
+          debugPrint('Failed to unregister $appName from dock: $e2');
+        }
+      }
+    });
   }
 
   Future<void> _uninstallApp(DesktopEntry entry) async {
@@ -285,12 +655,17 @@ class _LauncherHomeState extends State<LauncherHome> {
         if (!mounted) return;
         Navigator.of(context).pop();
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not determine package name for ${entry.name}')),
+          SnackBar(
+            content: Text('Could not determine package name for ${entry.name}'),
+          ),
         );
         return;
       }
 
-      final uninstallCmd = await _pkgService.buildUninstallCmd(manager, packageName);
+      final uninstallCmd = await _pkgService.buildUninstallCmd(
+        manager,
+        packageName,
+      );
       if (uninstallCmd == null) {
         if (!mounted) return;
         Navigator.of(context).pop();
@@ -309,20 +684,27 @@ class _LauncherHomeState extends State<LauncherHome> {
       await process.stdin.close();
 
       final exitCode = await process.exitCode;
-      final stderrOut = await process.stderr.transform(const SystemEncoding().decoder).join();
+      final stderrOut = await process.stderr
+          .transform(const SystemEncoding().decoder)
+          .join();
 
       if (!mounted) return;
       Navigator.of(context).pop();
 
       if (exitCode == 0) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Successfully uninstalled ${entry.name}'), backgroundColor: Colors.green),
+          SnackBar(
+            content: Text('Successfully uninstalled ${entry.name}'),
+            backgroundColor: Colors.green,
+          ),
         );
         await _refreshApps();
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to uninstall ${entry.name}: ${stderrOut.isNotEmpty ? stderrOut : 'Uninstallation failed'}'),
+            content: Text(
+              'Failed to uninstall ${entry.name}: ${stderrOut.isNotEmpty ? stderrOut : 'Uninstallation failed'}',
+            ),
             backgroundColor: Colors.red,
             duration: const Duration(seconds: 5),
           ),
@@ -332,7 +714,10 @@ class _LauncherHomeState extends State<LauncherHome> {
       if (!mounted) return;
       Navigator.of(context).pop();
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error uninstalling ${entry.name}: $e'), backgroundColor: Colors.red),
+        SnackBar(
+          content: Text('Error uninstalling ${entry.name}: $e'),
+          backgroundColor: Colors.red,
+        ),
       );
     }
   }
@@ -346,12 +731,18 @@ class _LauncherHomeState extends State<LauncherHome> {
       );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Desktop shortcut created for ${entry.name}'), backgroundColor: Colors.green),
+        SnackBar(
+          content: Text('Desktop shortcut created for ${entry.name}'),
+          backgroundColor: Colors.green,
+        ),
       );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to create desktop shortcut: $e'), backgroundColor: Colors.red),
+        SnackBar(
+          content: Text('Failed to create desktop shortcut: $e'),
+          backgroundColor: Colors.red,
+        ),
       );
     }
   }
@@ -390,198 +781,350 @@ class _LauncherHomeState extends State<LauncherHome> {
 
     showDialog(
       context: context,
+      barrierDismissible: true,
+      barrierColor: Colors.black.withOpacity(0.55),
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => Dialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: Container(
-            width: 500,
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              color: Colors.grey[900],
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          backgroundColor: Colors.transparent,
+          insetPadding: const EdgeInsets.all(24),
+          child: _GlassDialogShell(
+            width: 540,
+            title: 'Launcher Settings',
+            onClose: () => Navigator.of(context).pop(),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    const Text('Launcher Settings', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white)),
-                    IconButton(icon: const Icon(Icons.close, color: Colors.white70), onPressed: () => Navigator.of(context).pop()),
-                  ],
-                ),
-                const SizedBox(height: 32),
-                const Text('Background Color', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.white)),
-                const SizedBox(height: 12),
-                GridView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 8, crossAxisSpacing: 8, mainAxisSpacing: 8, childAspectRatio: 1),
-                  itemCount: _presetColors.length,
-                  itemBuilder: (context, index) {
-                    final color = _presetColors[index];
-                    final isSelected = tempColor == color;
-                    return GestureDetector(
-                      onTap: () => setDialogState(() => tempColor = color),
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: color,
-                          shape: BoxShape.circle,
-                          border: Border.all(color: isSelected ? Colors.white : Colors.transparent, width: 3),
-                          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 4, spreadRadius: 1)],
-                        ),
-                        child: isSelected ? const Icon(Icons.check, color: Colors.white, size: 20) : null,
+                    _GlassSection(
+                      title: 'Background appearance',
+                      subtitle:
+                          'Blend the launcher with your desktop using color, opacity, and wallpaper.',
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Color presets',
+                            style: TextStyle(
+                              color: Colors.white.withOpacity(0.9),
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: 0.2,
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          GridView.builder(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            gridDelegate:
+                                const SliverGridDelegateWithFixedCrossAxisCount(
+                                  crossAxisCount: 8,
+                                  crossAxisSpacing: 10,
+                                  mainAxisSpacing: 10,
+                                  childAspectRatio: 1,
+                                ),
+                            itemCount: _presetColors.length,
+                            itemBuilder: (context, index) {
+                              final color = _presetColors[index];
+                              final isSelected = tempColor == color;
+                              return GestureDetector(
+                                onTap: () =>
+                                    setDialogState(() => tempColor = color),
+                                child: AnimatedContainer(
+                                  duration: const Duration(milliseconds: 180),
+                                  decoration: BoxDecoration(
+                                    color: color,
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color: isSelected
+                                          ? Colors.white
+                                          : Colors.transparent,
+                                      width: 3,
+                                    ),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.45),
+                                        blurRadius: isSelected ? 12 : 6,
+                                        spreadRadius: isSelected ? 2 : 0,
+                                        offset: const Offset(0, 6),
+                                      ),
+                                    ],
+                                  ),
+                                  child: isSelected
+                                      ? const Icon(
+                                          Icons.check,
+                                          color: Colors.white,
+                                          size: 20,
+                                        )
+                                      : null,
+                                ),
+                              );
+                            },
+                          ),
+                          const SizedBox(height: 10),
+                          _GlassButton(
+                            icon: Icons.colorize,
+                            label: 'Custom color',
+                            onPressed: () async {
+                              final picked = await showDialog<Color>(
+                                context: context,
+                                builder: (c) => CustomColorPickerDialog(
+                                  initialColor: tempColor,
+                                ),
+                              );
+                              if (picked != null) {
+                                setDialogState(() => tempColor = picked);
+                              }
+                            },
+                          ),
+                          const SizedBox(height: 14),
+                          Text(
+                            'Transparency',
+                            style: TextStyle(
+                              color: Colors.white.withOpacity(0.9),
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: 0.2,
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: SliderTheme(
+                                  data: SliderTheme.of(context).copyWith(
+                                    activeTrackColor: Colors.blueAccent,
+                                    inactiveTrackColor: Colors.white24,
+                                    trackHeight: 4,
+                                    thumbColor: Colors.blueAccent,
+                                    overlayColor: Colors.blueAccent.withOpacity(
+                                      0.2,
+                                    ),
+                                    thumbShape: const RoundSliderThumbShape(
+                                      enabledThumbRadius: 8,
+                                    ),
+                                    overlayShape: const RoundSliderOverlayShape(
+                                      overlayRadius: 16,
+                                    ),
+                                  ),
+                                  child: Slider(
+                                    value: tempOpacity,
+                                    min: 0.0,
+                                    max: 1.0,
+                                    divisions: 100,
+                                    onChanged: (value) => setDialogState(
+                                      () => tempOpacity = value,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 14,
+                                  vertical: 8,
+                                ),
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(14),
+                                  color: Colors.white.withOpacity(0.08),
+                                  border: Border.all(
+                                    color: Colors.white.withOpacity(0.14),
+                                  ),
+                                ),
+                                child: Text(
+                                  '${(tempOpacity * 100).round()}%',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 20),
+                          Text(
+                            'Wallpaper',
+                            style: TextStyle(
+                              color: Colors.white.withOpacity(0.9),
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: 0.2,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: _GlassButton(
+                                  icon: Icons.image_outlined,
+                                  label: 'Select image',
+                                  onPressed: () async {
+                                    final imagePath =
+                                        await _pickBackgroundImage();
+                                    if (imagePath != null) {
+                                      setDialogState(
+                                        () => tempBackgroundImage = imagePath,
+                                      );
+                                    }
+                                  },
+                                ),
+                              ),
+                              if (tempBackgroundImage != null) ...[
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: _GlassButton(
+                                    icon: Icons.delete_outline,
+                                    label: 'Remove wallpaper',
+                                    onPressed: () => setDialogState(
+                                      () => tempBackgroundImage = null,
+                                    ),
+                                    destructive: true,
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                          if (tempBackgroundImage != null) ...[
+                            const SizedBox(height: 10),
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(20),
+                              child: SizedBox(
+                                height: 140,
+                                child: Stack(
+                                  fit: StackFit.expand,
+                                  children: [
+                                    Image.file(
+                                      File(tempBackgroundImage!),
+                                      fit: BoxFit.cover,
+                                      errorBuilder:
+                                          (context, error, stackTrace) =>
+                                              Container(
+                                                color: Colors.black54,
+                                                alignment: Alignment.center,
+                                                child: const Icon(
+                                                  Icons.broken_image_outlined,
+                                                  color: Colors.white54,
+                                                ),
+                                              ),
+                                    ),
+                                    BackdropFilter(
+                                      filter: ImageFilter.blur(
+                                        sigmaX: 10,
+                                        sigmaY: 10,
+                                      ),
+                                      child: Container(
+                                        color: tempColor.withOpacity(
+                                          tempOpacity,
+                                        ),
+                                        alignment: Alignment.center,
+                                        child: const Text(
+                                          'Wallpaper preview',
+                                          style: TextStyle(
+                                            color: Colors.white,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
-                    );
-                  },
-                ),
-                const SizedBox(height: 8),
-                ElevatedButton.icon(
-                  onPressed: () async {
-                    final picked = await showDialog<Color>(
-                      context: context,
-                      builder: (c) => CustomColorPickerDialog(initialColor: tempColor),
-                    );
-                    if (picked != null) setDialogState(() => tempColor = picked);
-                  },
-                  icon: const Icon(Icons.colorize),
-                  label: const Text('Custom Color'),
-                  style: ElevatedButton.styleFrom(backgroundColor: Colors.blue, foregroundColor: Colors.white),
-                ),
-                const SizedBox(height: 32),
-                const Text('Transparency', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.white)),
-                const SizedBox(height: 12),
-                Row(children: [
-                  Expanded(child: Slider(value: tempOpacity, min: 0.0, max: 1.0, divisions: 100, label: '${(tempOpacity * 100).round()}%', onChanged: (v) => setDialogState(() => tempOpacity = v), activeColor: Colors.blue)),
-                  const SizedBox(width: 16),
-                  SizedBox(width: 60, child: Text('${(tempOpacity * 100).round()}%', style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w500), textAlign: TextAlign.center)),
-                ]),
-                const SizedBox(height: 32),
-                // Background Image
-                const Text('Background Image', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.white)),
-                const SizedBox(height: 12),
-                Row(children: [
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      onPressed: () async {
-                        final imagePath = await _pickBackgroundImage();
-                        if (imagePath != null) {
-                          setDialogState(() => tempBackgroundImage = imagePath);
-                        }
-                      },
-                      icon: const Icon(Icons.image),
-                      label: const Text('Select Image'),
-                      style: ElevatedButton.styleFrom(backgroundColor: Colors.blue, foregroundColor: Colors.white),
                     ),
-                  ),
-                  if (tempBackgroundImage != null) ...[
-                    const SizedBox(width: 12),
-                    ElevatedButton.icon(
-                      onPressed: () => setDialogState(() => tempBackgroundImage = null),
-                      icon: const Icon(Icons.delete),
-                      label: const Text('Remove'),
-                      style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
-                    ),
-                  ],
-                ]),
-                if (tempBackgroundImage != null) ...[
-                  const SizedBox(height: 12),
-                  Container(
-                    height: 100,
-                    width: double.infinity,
-                    decoration: BoxDecoration(borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.white24)),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
-                      child: Image.file(
-                        File(tempBackgroundImage!),
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) => const Center(child: Icon(Icons.error, color: Colors.red)),
+                    const SizedBox(height: 10),
+                    _GlassSection(
+                      title: 'Icon theme',
+                      subtitle:
+                          'Select a folder containing themed icons to restyle your apps.',
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(
+                                child: _GlassButton(
+                                  icon: Icons.folder_open_outlined,
+                                  label: 'Select icon theme directory',
+                                  onPressed: () async {
+                                    final dir = await _pickIconThemeDirectory();
+                                    if (dir != null) {
+                                      setDialogState(() => tempIconTheme = dir);
+                                    }
+                                  },
+                                ),
+                              ),
+                              if (tempIconTheme != null) ...[
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: _GlassButton(
+                                    icon: Icons.clear_outlined,
+                                    label: 'Clear selection',
+                                    onPressed: () => setDialogState(
+                                      () => tempIconTheme = null,
+                                    ),
+                                    destructive: true,
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+                          AnimatedContainer(
+                            duration: const Duration(milliseconds: 180),
+                            padding: const EdgeInsets.all(14),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(16),
+                              color: Colors.white.withOpacity(0.05),
+                              border: Border.all(
+                                color: Colors.white.withOpacity(0.12),
+                              ),
+                            ),
+                            child: Text(
+                              tempIconTheme ?? 'No icon theme selected',
+                              style: const TextStyle(
+                                color: Colors.white70,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                  ),
-                ],
-                const SizedBox(height: 32),
-                // Icon Theme selection
-                const Text('Icon Theme', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.white)),
-                const SizedBox(height: 12),
-                Row(children: [
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      onPressed: () async {
-                        final dir = await _pickIconThemeDirectory();
-                        if (dir != null) setDialogState(() => tempIconTheme = dir);
-                      },
-                      icon: const Icon(Icons.folder),
-                      label: const Text('Select Icon Theme (directory)'),
-                      style: ElevatedButton.styleFrom(backgroundColor: Colors.blue, foregroundColor: Colors.white),
-                    ),
-                  ),
-                  if (tempIconTheme != null) ...[
-                    const SizedBox(width: 12),
-                    ElevatedButton.icon(
-                      onPressed: () => setDialogState(() => tempIconTheme = null),
-                      icon: const Icon(Icons.delete),
-                      label: const Text('Remove'),
-                      style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
-                    ),
-                  ],
-                ]),
-                const SizedBox(height: 8),
-                Text(
-                  tempIconTheme != null ? tempIconTheme! : 'No icon theme selected',
-                  style: const TextStyle(color: Colors.white70),
-                ),
-                const SizedBox(height: 12),
-                // Preview (image + overlay)
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: tempColor.withOpacity(tempOpacity),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.white24),
-                  ),
-                  child: Stack(children: [
-                    if (tempBackgroundImage != null)
-                      Positioned.fill(
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(8),
-                          child: Image.file(
-                            File(tempBackgroundImage!),
-                            fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) => const SizedBox(),
+                    const SizedBox(height: 28),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _GlassButton(
+                            icon: Icons.close_rounded,
+                            label: 'Cancel',
+                            onPressed: () => Navigator.of(context).pop(),
+                            accent: Colors.white70,
+                            filled: false,
                           ),
                         ),
-                      ),
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(color: tempColor.withOpacity(tempOpacity), borderRadius: BorderRadius.circular(8)),
-                      child: const Text('Preview', style: TextStyle(color: Colors.white)),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: _GlassButton(
+                            icon: Icons.check_circle_outline_rounded,
+                            label: 'Apply settings',
+                            onPressed: () {
+                              setState(() {
+                                _backgroundColor = tempColor;
+                                _opacity = tempOpacity;
+                                _backgroundImagePath = tempBackgroundImage;
+                                _iconThemePath = tempIconTheme;
+                              });
+                              _saveSettings();
+                              Navigator.of(context).pop();
+                            },
+                          ),
+                        ),
+                      ],
                     ),
-                  ]),
+                  ],
                 ),
-                const SizedBox(height: 32),
-                Row(mainAxisAlignment: MainAxisAlignment.end, children: [
-                  TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancel', style: TextStyle(color: Colors.white70))),
-                  const SizedBox(width: 12),
-                  ElevatedButton(
-                    onPressed: () {
-                      setState(() {
-                        _backgroundColor = tempColor;
-                        _opacity = tempOpacity;
-                        _backgroundImagePath = tempBackgroundImage;
-                        _iconThemePath = tempIconTheme;
-                      });
-                      _saveSettings();
-                      Navigator.of(context).pop();
-                    },
-                    style: ElevatedButton.styleFrom(backgroundColor: Colors.blue, foregroundColor: Colors.white),
-                    child: const Text('Apply'),
-                  ),
-                ]),
-              ],
+              ),
             ),
           ),
         ),
@@ -637,150 +1180,271 @@ class _LauncherHomeState extends State<LauncherHome> {
           ),
           Column(
             children: [
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                 SizedBox(width: MediaQuery.of(context).size.width / 2.5),
-                Container(
-                  alignment: Alignment.center,
-                  width: MediaQuery.of(context).size.width / 5,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: Colors.white10,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: TextField(
-                    controller: _searchController,
-                    onChanged: _filterApps,
-                    decoration: InputDecoration(
-                      hintText: 'Search applications...',
-                      prefixIcon: const Icon(Icons.search),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
+              Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    SizedBox(width: MediaQuery.of(context).size.width / 2.5),
+                    Container(
+                      alignment: Alignment.center,
+                      width: MediaQuery.of(context).size.width / 5,
+                      height: 48,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.08),
+                        borderRadius: BorderRadius.circular(14),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.35),
+                            blurRadius: 22,
+                            spreadRadius: -12,
+                            offset: const Offset(0, 18),
+                          ),
+                          BoxShadow(
+                            color: Colors.white.withOpacity(0.08),
+                            blurRadius: 10,
+                            spreadRadius: -8,
+                            offset: const Offset(-6, -6),
+                          ),
+                        ],
                       ),
-                      filled: true,
-                      fillColor: Colors.white10,
+                      child: TextField(
+                        controller: _searchController,
+                        onChanged: _filterApps,
+                        decoration: InputDecoration(
+                          hintText: 'Search applications...',
+                          prefixIcon: const Icon(Icons.search),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          filled: true,
+                          fillColor: Colors.white.withOpacity(0.04),
+                        ),
+                        style: const TextStyle(color: Colors.white),
+                      ),
                     ),
-                    style: const TextStyle(color: Colors.white),
-                  ),
+                    const SizedBox(width: 12),
+                    MouseRegion(
+                      cursor: SystemMouseCursors.click,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(14),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.4),
+                              blurRadius: 18,
+                              spreadRadius: -10,
+                              offset: const Offset(0, 14),
+                            ),
+                            BoxShadow(
+                              color: Colors.white.withOpacity(0.08),
+                              blurRadius: 8,
+                              spreadRadius: -8,
+                              offset: const Offset(-4, -4),
+                            ),
+                          ],
+                        ),
+                        child: IconButton(
+                          onPressed: _showSettingsDialog,
+                          icon: const Icon(Icons.settings),
+                          iconSize: 26,
+                          color: Colors.white,
+                          tooltip: 'Settings',
+                          style: IconButton.styleFrom(
+                            backgroundColor: Colors.transparent,
+                            padding: const EdgeInsets.all(6),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 12),
-                IconButton(
-                  onPressed: _showSettingsDialog,
-                  icon: const Icon(Icons.settings),
-                  iconSize: 28,
-                  color: Colors.white,
-                  tooltip: 'Settings',
-                  style: IconButton.styleFrom(
-                    backgroundColor: Colors.white10,
-                    padding: const EdgeInsets.all(4),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          // Workspace cards strip
-          Row(
-            children: [
-           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0),
-            child: SizedBox(
-              height: 220,
-              width: MediaQuery.of(context).size.width/4,
-              child: BlocProvider<SystemStatsCubit>(
-                create: (_) => SystemStatsCubit(SystemStatsRepository()),
-                child: SystemStatsGrid(),
               ),
-            ),
-          ),
-              Expanded(
-                child: SizedBox(
-                  height: 120,
-                  child: Padding(
+              // Workspace cards strip
+              Row(
+                children: [
+                  Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                    child: _workspaces.isEmpty
-                        ? const SizedBox.shrink()
-                        : ListView.separated(
-                            scrollDirection: Axis.horizontal,
-                            itemCount: _workspaces.length,
-                            separatorBuilder: (_, __) => const SizedBox(width: 12),
-                            itemBuilder: (context, idx) {
-                              final w = _workspaces[idx];
-                              return GestureDetector(
-                                onTap: () => _switchToWorkspace(w.index),
-                                child: Container(
-                                  width: 220,
-                                  decoration: BoxDecoration(
-                                    color: w.isCurrent ? Colors.white10 : Colors.white12,
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(color: w.isCurrent ? Colors.blue : Colors.transparent, width: 2),
-                                  ),
-                                  padding: const EdgeInsets.all(12),
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Expanded(
-                                        child: Container(
-                                          width: double.infinity,
-                                          decoration: BoxDecoration(
-                                            color: Colors.black26,
-                                            borderRadius: BorderRadius.circular(8),
+                    child: SizedBox(
+                      height: 220,
+                      width: MediaQuery.of(context).size.width / 4,
+                      child: BlocProvider<SystemStatsCubit>(
+                        create: (_) =>
+                            SystemStatsCubit(SystemStatsRepository()),
+                        child: SystemStatsGrid(),
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    child: SizedBox(
+                      height: 120,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                        child: _workspaces.isEmpty
+                            ? const SizedBox.shrink()
+                            : ListView.separated(
+                                scrollDirection: Axis.horizontal,
+                                itemCount: _workspaces.length,
+                                separatorBuilder: (_, __) =>
+                                    const SizedBox(width: 12),
+                                itemBuilder: (context, idx) {
+                                  final w = _workspaces[idx];
+                                  final isHovered =
+                                      _hoveredWorkspace == w.index;
+                                  final isCurrent = w.isCurrent;
+                                  final baseColor = isCurrent
+                                      ? Colors.white.withOpacity(0.16)
+                                      : Colors.white.withOpacity(0.08);
+                                  final hoverScale = isHovered ? 1.04 : 1.0;
+
+                                  return MouseRegion(
+                                    cursor: SystemMouseCursors.click,
+                                    onEnter: (_) => setState(
+                                      () => _hoveredWorkspace = w.index,
+                                    ),
+                                    onExit: (_) => setState(
+                                      () => _hoveredWorkspace = null,
+                                    ),
+                                    child: GestureDetector(
+                                      onTap: () => _switchToWorkspace(w.index),
+                                      child: AnimatedContainer(
+                                        duration: const Duration(
+                                          milliseconds: 220,
+                                        ),
+                                        curve: Curves.easeOutCubic,
+                                        width: 220,
+                                        transform: Matrix4.identity()
+                                          ..scale(hoverScale, hoverScale),
+                                        decoration: BoxDecoration(
+                                          color: baseColor,
+                                          borderRadius: BorderRadius.circular(
+                                            16,
                                           ),
-                                          child: Center(
-                                            child: Text('Workspace ${w.index + 1}', style: const TextStyle(color: Colors.white70)),
+                                          border: Border.all(
+                                            color: isCurrent
+                                                ? Colors.blueAccent
+                                                : Colors.transparent,
+                                            width: 2.2,
                                           ),
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: Colors.black.withOpacity(
+                                                isHovered || isCurrent
+                                                    ? 0.45
+                                                    : 0.2,
+                                              ),
+                                              blurRadius: isHovered ? 26 : 16,
+                                              spreadRadius: -8,
+                                              offset: const Offset(0, 16),
+                                            ),
+                                            if (isHovered || isCurrent)
+                                              BoxShadow(
+                                                color: Colors.white.withOpacity(
+                                                  0.1,
+                                                ),
+                                                blurRadius: 18,
+                                                spreadRadius: -12,
+                                                offset: const Offset(-6, -6),
+                                              ),
+                                          ],
+                                        ),
+                                        padding: const EdgeInsets.all(14),
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Expanded(
+                                              child: Container(
+                                                width: double.infinity,
+                                                decoration: BoxDecoration(
+                                                  gradient: LinearGradient(
+                                                    begin: Alignment.topLeft,
+                                                    end: Alignment.bottomRight,
+                                                    colors: [
+                                                      Colors.white.withOpacity(
+                                                        0.08,
+                                                      ),
+                                                      Colors.black.withOpacity(
+                                                        0.4,
+                                                      ),
+                                                    ],
+                                                  ),
+                                                  borderRadius:
+                                                      BorderRadius.circular(12),
+                                                ),
+                                                child: Center(
+                                                  child: Text(
+                                                    'Workspace ${w.index + 1}',
+                                                    style: TextStyle(
+                                                      color: Colors.white
+                                                          .withOpacity(0.8),
+                                                      fontWeight:
+                                                          FontWeight.w600,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                            const SizedBox(height: 10),
+                                            Text(
+                                              w.name,
+                                              style: const TextStyle(
+                                                color: Colors.white,
+                                                fontWeight: FontWeight.w700,
+                                              ),
+                                            ),
+                                          ],
                                         ),
                                       ),
-                                      const SizedBox(height: 8),
-                                      Text(w.name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
-                                    ],
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
+                                    ),
+                                  );
+                                },
+                              ),
+                      ),
+                    ),
                   ),
-                ),
+                ],
+              ),
+
+              // System stats grid below the search bar (provide its Cubit)
+              Expanded(
+                child: _isLoading
+                    ? const Center(child: CircularProgressIndicator())
+                    : AppGrid(
+                        apps: _filteredApps,
+                        iconThemeDir: _iconThemePath,
+                        onLaunch: _launchEntry,
+                        onPin: (e) async {
+                          try {
+                            await _dockService.ensureClientConnection();
+                            await _dockService.pinApp(e);
+                            if (!mounted) return;
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Pinned ${e.name} to dock'),
+                              ),
+                            );
+                          } catch (err) {
+                            if (!mounted) return;
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  'Could not pin ${e.name}: Make sure the VAXP Dock is running',
+                                ),
+                              ),
+                            );
+                          }
+                        },
+                        onInstall: _uninstallApp,
+                        onCreateShortcut: _createDesktopShortcut,
+                        onLaunchWithExternalGPU: _launchWithExternalGPU,
+                      ),
               ),
             ],
-          ),
-          // System stats grid below the search bar (provide its Cubit)
-
-          Expanded(
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : AppGrid(
-                    apps: _filteredApps,
-          iconThemeDir: _iconThemePath,
-                    onLaunch: _launchEntry,
-                    onPin: (e) async {
-                      try {
-                        await _dockService.ensureClientConnection();
-                        await _dockService.pinApp(e);
-                        if (!mounted) return;
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Pinned ${e.name} to dock')),
-                        );
-                      } catch (err) {
-                        if (!mounted) return;
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Could not pin ${e.name}: Make sure the VAXP Dock is running')),
-                        );
-                      }
-                    },
-                    onInstall: _uninstallApp,
-                    onCreateShortcut: _createDesktopShortcut,
-                    onLaunchWithExternalGPU: _launchWithExternalGPU,
-                  ),
-          ),
-        ],
           ),
         ],
       ),
     );
   }
 }
-
-

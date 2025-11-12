@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:vaxp_core/models/desktop_entry.dart';
 import 'package:vaxp_core/services/dock_service.dart';
 import 'package:hotkey_manager/hotkey_manager.dart';
+import 'models/running_app.dart';
 import 'widgets/dock/dock_panel.dart';
 
 void main() async {
@@ -62,6 +63,7 @@ class DockHome extends StatefulWidget {
 class _DockHomeState extends State<DockHome> {
   String? _backgroundImagePath;
   List<DesktopEntry> _pinnedApps = [];
+  Map<int, RunningApp> _runningApps = {}; // PID -> RunningApp
   bool _launcherVisible = false;
   bool _launcherMinimized = false;
 
@@ -71,10 +73,13 @@ class _DockHomeState extends State<DockHome> {
     widget.dockService.onPinRequest = _handlePinRequest;
     widget.dockService.onUnpinRequest = _handleUnpinRequest;
     widget.dockService.onLauncherState = _handleLauncherState;
+    widget.dockService.onRegisterRunningApp = _handleRegisterRunningApp;
+    widget.dockService.onUnregisterRunningApp = _handleUnregisterRunningApp;
     // Ensure Flutter bindings are initialized for shared_preferences
     WidgetsFlutterBinding.ensureInitialized();
     _loadPinnedApps();
     _setupHotkey();
+    _startProcessMonitor();
   }
 
   void _handleLauncherState(String state) {
@@ -138,6 +143,98 @@ class _DockHomeState extends State<DockHome> {
       _pinnedApps.removeWhere((app) => app.name == name);
       _savePinnedApps(); // Save changes to persistent storage
     });
+  }
+
+  void _handleRegisterRunningApp(String name, String exec, String? iconPath, bool isSvgIcon, int pid) {
+    setState(() {
+      _runningApps[pid] = RunningApp(
+        name: name,
+        exec: exec,
+        iconPath: iconPath,
+        isSvgIcon: isSvgIcon,
+        pid: pid,
+      );
+    });
+  }
+
+  void _handleUnregisterRunningApp(int pid) {
+    setState(() {
+      _runningApps.remove(pid);
+    });
+  }
+
+  /// Monitor running processes and remove them from dock when they exit
+  void _startProcessMonitor() {
+    // Check every 2 seconds if processes are still running
+    Future.delayed(const Duration(seconds: 2), () {
+      if (!mounted) return;
+      _checkRunningProcesses();
+      _startProcessMonitor(); // Schedule next check
+    });
+  }
+
+  Future<void> _checkRunningProcesses() async {
+    final pidsToRemove = <int>[];
+    for (final pid in _runningApps.keys) {
+      try {
+        // Check if process exists by reading /proc/[pid]/stat
+        final procFile = File('/proc/$pid/stat');
+        if (!await procFile.exists()) {
+          pidsToRemove.add(pid);
+        }
+      } catch (e) {
+        // Process likely doesn't exist
+        pidsToRemove.add(pid);
+      }
+    }
+    if (pidsToRemove.isNotEmpty && mounted) {
+      setState(() {
+        for (final pid in pidsToRemove) {
+          _runningApps.remove(pid);
+        }
+      });
+    }
+  }
+
+  /// Focus a running application by its PID
+  Future<void> _focusApp(int pid) async {
+    try {
+      // Try wmctrl first (more reliable for window management)
+      final wmctrlResult = await Process.run('which', ['wmctrl']);
+      if (wmctrlResult.exitCode == 0) {
+        // Find window by PID and focus it
+        final findResult = await Process.run('wmctrl', ['-l', '-p']);
+        if (findResult.exitCode == 0) {
+          final lines = (findResult.stdout as String).split('\n');
+          for (final line in lines) {
+            if (line.contains(' $pid ')) {
+              final parts = line.split(RegExp(r'\s+'));
+              if (parts.isNotEmpty) {
+                final windowId = parts[0];
+                await Process.run('wmctrl', ['-i', '-a', windowId]);
+                return;
+              }
+            }
+          }
+        }
+      }
+
+      // Fallback to xdotool
+      final xdotoolResult = await Process.run('which', ['xdotool']);
+      if (xdotoolResult.exitCode == 0) {
+        // Get window ID from PID and focus it
+        final searchResult = await Process.run('xdotool', ['search', '--pid', pid.toString()]);
+        if (searchResult.exitCode == 0) {
+          final windowIds = (searchResult.stdout as String).trim().split('\n');
+          if (windowIds.isNotEmpty && windowIds[0].isNotEmpty) {
+            await Process.run('xdotool', ['windowactivate', windowIds[0]]);
+            return;
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('Failed to focus app with PID $pid: $e');
+    }
   }
 
   void _launchEntry(DesktopEntry entry) async {
@@ -237,7 +334,9 @@ class _DockHomeState extends State<DockHome> {
                 }
               },
               pinnedApps: _pinnedApps,
+              runningApps: _runningApps.values.toList(),
               onUnpin: (name) => _handleUnpinRequest(name),
+              onFocusApp: _focusApp,
               onReorder: (oldIndex, newIndex) {
                 setState(() {
                   final item = _pinnedApps.removeAt(oldIndex);
