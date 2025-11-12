@@ -67,7 +67,6 @@ class _AppIconTileState extends State<AppIconTile>
   late final AnimationController _pressController;
   late final AnimationController _menuController;
   OverlayEntry? _contextMenuEntry;
-  Offset _pointerOffset = Offset.zero;
 
   static const Duration _hoverDuration = Duration(milliseconds: 220);
   static const Duration _pressDuration = Duration(milliseconds: 160);
@@ -104,18 +103,6 @@ class _AppIconTileState extends State<AppIconTile>
 
   void _onPointerExit(PointerExitEvent _) {
     _hoverController.reverse();
-    setState(() => _pointerOffset = Offset.zero);
-  }
-
-  void _onPointerHover(PointerHoverEvent event) {
-    final size = context.size;
-    if (size == null || size.width == 0 || size.height == 0) return;
-    final dx = (event.localPosition.dx / size.width).clamp(0.0, 1.0);
-    final dy = (event.localPosition.dy / size.height).clamp(0.0, 1.0);
-    final next = Offset(dx - 0.5, dy - 0.5);
-    if ((next - _pointerOffset).distance > 0.02) {
-      setState(() => _pointerOffset = next);
-    }
   }
 
   Future<void> _handleTap() async {
@@ -268,8 +255,8 @@ class _AppIconTileState extends State<AppIconTile>
     final iconPath = widget.iconPath;
     if (iconPath == null || iconPath.isEmpty) {
       return Container(
-        width: 72,
-        height: 72,
+        width: 80,
+        height: 80,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           gradient: const LinearGradient(
@@ -277,58 +264,43 @@ class _AppIconTileState extends State<AppIconTile>
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.4),
-              blurRadius: 18,
-              offset: const Offset(0, 8),
-            ),
-          ],
         ),
-        child: const Icon(Icons.apps, size: 36, color: Colors.white),
+        child: const Icon(Icons.apps, size: 40, color: Colors.white),
       );
     }
 
     final file = File(iconPath);
     if (widget.isSvgIcon) {
-      return ClipRRect(
-        borderRadius: BorderRadius.circular(18),
-        child: SvgPicture.file(
-          file,
-          width: 72,
-          height: 72,
-          fit: BoxFit.contain,
-          placeholderBuilder: (_) => const SizedBox(
-            width: 72,
-            height: 72,
-            child: Center(child: CircularProgressIndicator(strokeWidth: 1.5)),
-          ),
+      return SvgPicture.file(
+        file,
+        width: 80,
+        height: 80,
+        fit: BoxFit.contain,
+        placeholderBuilder: (_) => const SizedBox(
+          width: 80,
+          height: 80,
+          child: Center(child: CircularProgressIndicator(strokeWidth: 1.5)),
         ),
       );
     }
 
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(18),
-      child: Image.file(
-        file,
-        width: 72,
-        height: 72,
-        fit: BoxFit.cover,
-        errorBuilder: (_, __, ___) =>
-            const Icon(Icons.apps, size: 48, color: Colors.white70),
-      ),
+    return Image.file(
+      file,
+      width: 80,
+      height: 80,
+      fit: BoxFit.contain,
+      errorBuilder: (_, __, ___) =>
+          const Icon(Icons.apps, size: 64, color: Colors.white70),
     );
   }
 
   @override
   Widget build(BuildContext context) {
     final animation = Listenable.merge([_hoverController, _pressController]);
-    final theme = Theme.of(context);
 
     return MouseRegion(
       onEnter: _onPointerEnter,
       onExit: _onPointerExit,
-      onHover: _onPointerHover,
       cursor: SystemMouseCursors.click,
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
@@ -347,153 +319,54 @@ class _AppIconTileState extends State<AppIconTile>
             final pressScale = lerpDouble(0.0, 0.06, pressT) ?? 0.0;
             final scale = (hoverScale - pressScale).clamp(0.9, 1.12);
 
-            const tiltStrength = 0.25; // ~14 degrees at max
-            final rotationX = -_pointerOffset.dy * tiltStrength * hoverT;
-            final rotationY = _pointerOffset.dx * tiltStrength * hoverT;
-
-            final shadowBlur = lerpDouble(18, 42, hoverT)!;
-            final shadowOffset = lerpDouble(12, 28, hoverT)! - pressT * 8;
-            final haloOpacity = lerpDouble(0.0, 0.28, hoverT)!;
-
-            final matrix = Matrix4.identity()
-              ..setEntry(3, 2, 0.0015)
-              ..rotateX(rotationX)
-              ..rotateY(rotationY)
-              ..scale(scale);
-
-            final borderRadius = BorderRadius.circular(24);
+            // Simplified hover effect - just scale and subtle shadow
+            final shadowBlur = lerpDouble(0, 20, hoverT)!;
+            final shadowOpacity = lerpDouble(0.0, 0.3, hoverT)!;
 
             return Transform(
               alignment: Alignment.center,
-              transform: matrix,
-              child: Container(
-                decoration: BoxDecoration(
-                  borderRadius: borderRadius,
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      Colors.white.withOpacity(0.16 + hoverT * 0.12),
-                      const Color(0xFF141821).withOpacity(0.85),
-                    ],
-                  ),
-                  border: Border.all(
-                    color: Colors.white.withOpacity(0.08 + hoverT * 0.12),
-                    width: 1.2,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.45 + hoverT * 0.15),
-                      blurRadius: shadowBlur,
-                      spreadRadius: -8,
-                      offset: Offset(0, shadowOffset),
+              transform: Matrix4.identity()..scale(scale),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    decoration: BoxDecoration(
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(shadowOpacity),
+                          blurRadius: shadowBlur,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
                     ),
-                    BoxShadow(
-                      color: Colors.white.withOpacity(0.05 * hoverT),
-                      blurRadius: 16,
-                      spreadRadius: -12,
-                      offset: const Offset(-8, -8),
-                    ),
-                  ],
-                ),
-                child: ClipRRect(
-                  borderRadius: borderRadius,
-                  child: Stack(
-                    children: [
-                      Positioned.fill(
-                        child: Container(
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                              colors: [
-                                Colors.white.withOpacity(0.18 + hoverT * 0.1),
-                                Colors.white.withOpacity(0.04),
-                                Colors.black.withOpacity(0.35),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                      Positioned(
-                        top: 0,
-                        left: 0,
-                        right: 0,
-                        child: IgnorePointer(
-                          child: Opacity(
-                            opacity: haloOpacity,
-                            child: Container(
-                              height: 38,
-                              decoration: const BoxDecoration(
-                                gradient: LinearGradient(
-                                  begin: Alignment.topCenter,
-                                  end: Alignment.bottomCenter,
-                                  colors: [
-                                    Color(0x66FFFFFF),
-                                    Color(0x00000000),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                      Positioned.fill(
-                        child: Container(
-                          decoration: BoxDecoration(
-                            borderRadius: borderRadius,
-                            boxShadow: [
-                              BoxShadow(
-                                color: theme.colorScheme.secondary.withOpacity(
-                                  0.08 * hoverT,
-                                ),
-                                blurRadius: 30,
-                                spreadRadius: -20,
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            _buildIcon(),
-                            const SizedBox(height: 14),
-                            Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                              ),
-                              child: Text(
-                                widget.entry.name,
-                                overflow: TextOverflow.ellipsis,
-                                maxLines: 1,
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  color: Colors.white.withOpacity(
-                                    lerpDouble(0.88, 1.0, hoverT)!,
-                                  ),
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 14,
-                                  letterSpacing: 0.2,
-                                  shadows: [
-                                    Shadow(
-                                      color: Colors.black.withOpacity(
-                                        0.55 + hoverT * 0.15,
-                                      ),
-                                      blurRadius: 6,
-                                      offset: const Offset(0, 2),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
+                    child: _buildIcon(),
                   ),
-                ),
+                  const SizedBox(height: 12),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    child: Text(
+                      widget.entry.name,
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(
+                          lerpDouble(0.85, 1.0, hoverT)!,
+                        ),
+                        fontWeight: FontWeight.w500,
+                        fontSize: 13,
+                        letterSpacing: 0.1,
+                        shadows: [
+                          Shadow(
+                            color: Colors.black.withOpacity(0.6),
+                            blurRadius: 4,
+                            offset: const Offset(0, 1),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
               ),
             );
           },
@@ -726,7 +599,7 @@ class _ContextMenuTileState extends State<_ContextMenuTile> {
 }
 
 class _AppGridState extends State<AppGrid> {
-  static const int itemsPerPage = 24;
+  static const int itemsPerPage = 32; // 8 columns × 4 rows
   int _currentPage = 0;
   List<File> _themeFiles = [];
   late int _totalPages;
@@ -900,10 +773,10 @@ class _AppGridState extends State<AppGrid> {
                         ),
                         gridDelegate:
                             const SliverGridDelegateWithFixedCrossAxisCount(
-                              crossAxisCount: 6,
-                              crossAxisSpacing: 18,
-                              mainAxisSpacing: 18,
-                              childAspectRatio: 1.45,
+                              crossAxisCount: 8,
+                              crossAxisSpacing: 24,
+                              mainAxisSpacing: 32,
+                              childAspectRatio: 0.85,
                             ),
                         itemCount: pageApps.length,
                         itemBuilder: (context, index) {
