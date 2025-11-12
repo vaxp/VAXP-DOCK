@@ -197,24 +197,59 @@ class _DockHomeState extends State<DockHome> {
   }
 
   /// Focus a running application by its PID
+  /// This will restore the window if minimized and bring it to front
   Future<void> _focusApp(int pid) async {
+    // Get the app name for fallback window finding
+    final runningApp = _runningApps[pid];
+    final appName = runningApp?.name;
+    
     try {
       // Try wmctrl first (more reliable for window management)
       final wmctrlResult = await Process.run('which', ['wmctrl']);
       if (wmctrlResult.exitCode == 0) {
-        // Find window by PID and focus it
+        // Find window by PID
         final findResult = await Process.run('wmctrl', ['-l', '-p']);
         if (findResult.exitCode == 0) {
           final lines = (findResult.stdout as String).split('\n');
+          String? windowId;
+          
+          // First try to find by PID
           for (final line in lines) {
             if (line.contains(' $pid ')) {
               final parts = line.split(RegExp(r'\s+'));
               if (parts.isNotEmpty) {
-                final windowId = parts[0];
-                await Process.run('wmctrl', ['-i', '-a', windowId]);
-                return;
+                windowId = parts[0];
+                break;
               }
             }
+          }
+          
+          // If not found by PID and we have app name, try by name
+          if (windowId == null && appName != null) {
+            for (final line in lines) {
+              // Check if window title contains app name (case insensitive)
+              final titleStart = line.indexOf('  ') + 2;
+              if (titleStart > 1 && titleStart < line.length) {
+                final title = line.substring(titleStart);
+                if (title.toLowerCase().contains(appName.toLowerCase())) {
+                  final parts = line.split(RegExp(r'\s+'));
+                  if (parts.isNotEmpty) {
+                    windowId = parts[0];
+                    break;
+                  }
+                }
+              }
+            }
+          }
+          
+          if (windowId != null) {
+            // First restore the window (unminimize it)
+            await Process.run('wmctrl', ['-i', '-R', windowId]);
+            // Small delay to ensure restore completes
+            await Future.delayed(const Duration(milliseconds: 100));
+            // Then activate it (bring to front and focus)
+            await Process.run('wmctrl', ['-i', '-a', windowId]);
+            return;
           }
         }
       }
@@ -222,14 +257,43 @@ class _DockHomeState extends State<DockHome> {
       // Fallback to xdotool
       final xdotoolResult = await Process.run('which', ['xdotool']);
       if (xdotoolResult.exitCode == 0) {
-        // Get window ID from PID and focus it
+        String? windowId;
+        
+        // Get window ID from PID
         final searchResult = await Process.run('xdotool', ['search', '--pid', pid.toString()]);
         if (searchResult.exitCode == 0) {
           final windowIds = (searchResult.stdout as String).trim().split('\n');
           if (windowIds.isNotEmpty && windowIds[0].isNotEmpty) {
-            await Process.run('xdotool', ['windowactivate', windowIds[0]]);
-            return;
+            windowId = windowIds[0];
           }
+        }
+        
+        // If not found by PID and we have app name, try by name
+        if (windowId == null && appName != null) {
+          try {
+            // Try to find window by class name (WM_CLASS)
+            final classResult = await Process.run('xdotool', ['search', '--class', appName.toLowerCase()]);
+            if (classResult.exitCode == 0) {
+              final windowIds = (classResult.stdout as String).trim().split('\n');
+              if (windowIds.isNotEmpty && windowIds[0].isNotEmpty) {
+                windowId = windowIds[0];
+              }
+            }
+          } catch (e) {
+            debugPrint('Could not find window by class name: $e');
+          }
+        }
+        
+        if (windowId != null) {
+          // First map (unminimize) the window
+          await Process.run('xdotool', ['windowmap', windowId]);
+          // Small delay to ensure map completes
+          await Future.delayed(const Duration(milliseconds: 100));
+          // Then activate it (bring to front and focus)
+          await Process.run('xdotool', ['windowactivate', windowId]);
+          // Also raise it to ensure it's on top
+          await Process.run('xdotool', ['windowraise', windowId]);
+          return;
         }
       }
     } catch (e) {
