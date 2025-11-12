@@ -181,7 +181,7 @@ class _DockPanelState extends State<DockPanel> {
                     );
                   },
                   child: DockIcon(
-                    icon: Icons.apps,
+                    icon: Icons.apps_sharp,
                     tooltip: 'Show all apps',
                     onTap: widget.onShowLauncher,
                   ),
