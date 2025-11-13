@@ -944,6 +944,30 @@ class _LauncherHomeState extends State<LauncherHome> {
       }
       return true;
     }
+    if (lower.startsWith('g:')) {
+      final term = query.substring(2).trim();
+      if (term.isEmpty) {
+        _showSnackMessage('Enter a search term after "g:".');
+      } else {
+        final url =
+            'https://github.com/search?q=${Uri.encodeQueryComponent(term)}';
+        unawaited(_launchWebSearch(url, description: 'GitHub'));
+        _resetSearchField();
+      }
+      return true;
+    }
+    if (lower.startsWith('s:')) {
+      final term = query.substring(2).trim();
+      if (term.isEmpty) {
+        _showSnackMessage('Enter a search term after "s:".');
+      } else {
+        final url =
+            'https://www.google.com/search?q=${Uri.encodeQueryComponent(term)}';
+        unawaited(_launchWebSearch(url, description: 'Google'));
+        _resetSearchField();
+      }
+      return true;
+    }
     return false;
   }
 
@@ -1911,6 +1935,27 @@ class _LauncherHomeState extends State<LauncherHome> {
       debugPrint('Failed to open path $targetPath: $e\n$st');
       _showSnackMessage(
         'Failed to open file: $e',
+        backgroundColor: Colors.redAccent,
+      );
+    }
+  }
+
+  Future<void> _launchWebSearch(
+    String url, {
+    required String description,
+  }) async {
+    try {
+      final result = await Process.run('xdg-open', [url]);
+      if (result.exitCode != 0) {
+        _showSnackMessage(
+          'Failed to open $description search (exit code ${result.exitCode}).',
+          backgroundColor: Colors.redAccent,
+        );
+      }
+    } catch (e, st) {
+      debugPrint('Failed to launch $description search ($url): $e\n$st');
+      _showSnackMessage(
+        'Failed to open $description search: $e',
         backgroundColor: Colors.redAccent,
       );
     }
