@@ -3,6 +3,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../ui/launcher_home.dart';
 import '../features/search/application/search_cubit.dart';
 import '../features/search/data/repositories/search_repository.dart';
+import '../features/settings/application/settings_cubit.dart';
+import '../features/settings/data/repositories/settings_repository.dart';
 
 class LauncherApp extends StatelessWidget {
   const LauncherApp({super.key});
@@ -18,8 +20,15 @@ class LauncherApp extends StatelessWidget {
           brightness: Brightness.dark,
         ),
       ),
-      home: BlocProvider(
-        create: (context) => SearchCubit(SearchRepository()),
+      home: MultiBlocProvider(
+        providers: [
+          BlocProvider(
+            create: (context) => SearchCubit(SearchRepository()),
+          ),
+          BlocProvider(
+            create: (context) => SettingsCubit(SettingsRepository()),
+          ),
+        ],
         child: const LauncherHome(),
       ),
       debugShowCheckedModeBanner: false,
