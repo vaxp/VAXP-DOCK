@@ -1286,6 +1286,7 @@ class _LauncherHomeState extends State<LauncherHome> {
               // Workspace cards strip
               Row(
                 children: [
+                  
                   Expanded(
                     child: SizedBox(
                       height: 200, // الارتفاع ثابت كما حددته
