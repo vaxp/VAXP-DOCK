@@ -315,7 +315,7 @@ class _ControlCenterPageState extends State<ControlCenterPage> {
       body: GlassmorphicContainer(
         width: double.infinity,
         height: 200,
-        borderRadius: 1,
+        borderRadius: 20,
         linearGradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
