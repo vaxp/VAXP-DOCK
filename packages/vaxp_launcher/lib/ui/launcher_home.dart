@@ -528,16 +528,16 @@ class _LauncherHomeState extends State<LauncherHome> {
       // Start the process and get its PID
       final process = await Process.start('/bin/sh', ['-c', finalCmd]);
       final shellPid = process.pid;
-      
+
       // Register the running app with the dock
       try {
         await _dockService.ensureClientConnection();
-        
+
         // Try to get the actual application PID after a short delay
         // This handles cases where the shell launches a detached process
         Future.delayed(const Duration(milliseconds: 500), () async {
           int actualPid = shellPid;
-          
+
           // Try to find the process by extracting the command name
           try {
             final cmdName = cleaned.split(' ').first.split('/').last;
@@ -557,17 +557,17 @@ class _LauncherHomeState extends State<LauncherHome> {
           } catch (e) {
             debugPrint('Could not find actual PID, using shell PID: $e');
           }
-          
+
           // Register with the actual PID
           await _dockService.registerRunningApp(entry, actualPid);
-          
+
           // Mark app as running in launcher
           if (mounted) {
             setState(() {
               _runningAppNames.add(entry.name);
             });
           }
-          
+
           // Monitor the process and unregister when it exits
           // Check periodically if the process is still running
           _monitorProcess(actualPid, entry.name);
@@ -576,7 +576,7 @@ class _LauncherHomeState extends State<LauncherHome> {
         debugPrint('Failed to register app with dock: $e');
         // Continue even if dock registration fails
       }
-      
+
       await windowManager.minimize();
       try {
         await _dockService.reportLauncherState('minimized');
@@ -616,7 +616,7 @@ class _LauncherHomeState extends State<LauncherHome> {
           }
           return;
         }
-        
+
         // Process still running, check again later
         _monitorProcess(pid, appName);
       } catch (e) {
@@ -1286,132 +1286,148 @@ class _LauncherHomeState extends State<LauncherHome> {
               // Workspace cards strip
               Row(
                 children: [
-                  
                   Expanded(
                     child: SizedBox(
-                      height: 120,
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                        child: _workspaces.isEmpty
-                            ? const SizedBox.shrink()
-                            : ListView.separated(
-                                scrollDirection: Axis.horizontal,
-                                itemCount: _workspaces.length,
-                                separatorBuilder: (_, __) =>
-                                    const SizedBox(width: 12),
-                                itemBuilder: (context, idx) {
-                                  final w = _workspaces[idx];
-                                  final isHovered =
-                                      _hoveredWorkspace == w.index;
-                                  final isCurrent = w.isCurrent;
-                                  final baseColor = isCurrent
-                                      ? Colors.white.withOpacity(0.16)
-                                      : Colors.white.withOpacity(0.08);
-                                  final hoverScale = isHovered ? 1.04 : 1.0;
-              
-                                  return MouseRegion(
-                                    cursor: SystemMouseCursors.click,
-                                    onEnter: (_) => setState(
-                                      () => _hoveredWorkspace = w.index,
-                                    ),
-                                    onExit: (_) => setState(
-                                      () => _hoveredWorkspace = null,
-                                    ),
-                                    child: GestureDetector(
-                                      onTap: () => _switchToWorkspace(w.index),
-                                      child: AnimatedContainer(
-                                        duration: const Duration(
-                                          milliseconds: 220,
-                                        ),
-                                        curve: Curves.easeOutCubic,
-                                        width: 220,
-                                        transform: Matrix4.identity()
-                                          ..scale(hoverScale, hoverScale),
-                                        decoration: BoxDecoration(
-                                          color: baseColor,
-                                          borderRadius: BorderRadius.circular(
-                                            16,
+                      height: 200, // الارتفاع ثابت كما حددته
+                      child: GlassmorphicContainer(
+        width: double.infinity,
+        height: 200,
+        borderRadius: 16,
+        linearGradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            const Color.fromARGB(0, 0, 0, 0),
+            const Color.fromARGB(0, 0, 0, 0),
+          ],
+        ),
+        border: 1.2,
+        blur: 26,
+        borderGradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            // borderColor.withOpacity(0.1),
+            // borderColor.withOpacity(0.05),
+          ],
+        ),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                          child: _workspaces.isEmpty
+                              ? const SizedBox.shrink()
+                              : ListView.separated(
+                                  scrollDirection: Axis.horizontal,
+                                  itemCount: _workspaces.length,
+                                  separatorBuilder: (_, __) =>
+                                      const SizedBox(width: 12),
+                                  // --- (بداية التعديل) ---
+                                  // تم إعادة كتابة الـ itemBuilder بالكامل
+                                  itemBuilder: (context, idx) {
+                                    final w = _workspaces[idx];
+                                    final isHovered =
+                                        _hoveredWorkspace == w.index;
+                                    final isCurrent = w.isCurrent;
+                                            
+                                    // --- 1. تحديد الألوان بناءً على الحالة ---
+                                    final Color baseColor;
+                                    if (isCurrent) {
+                                      // اللون النشط (أكثر سطوعاً)
+                                      baseColor = Colors.white.withOpacity(
+                                        0.16,
+                                      );
+                                    } else if (isHovered) {
+                                      // اللون عند الحوم
+                                      baseColor = Colors.white.withOpacity(
+                                        0.12,
+                                      );
+                                    } else {
+                                      // اللون الافتراضي (نفس بطاقات النظام)
+                                      baseColor = Colors.white.withOpacity(
+                                        0.08,
+                                      );
+                                    }
+                                            
+                                    // --- 2. تحديد لون الحدود ---
+                                    final Color borderColor = isCurrent
+                                        ? Colors.white.withOpacity(
+                                            0.5,
+                                          ) // إطار أبيض للنشط
+                                        : Colors.transparent;
+                                            
+                                    return MouseRegion(
+                                      cursor: SystemMouseCursors.click,
+                                      onEnter: (_) => setState(
+                                        () => _hoveredWorkspace = w.index,
+                                      ),
+                                      onExit: (_) => setState(
+                                        () => _hoveredWorkspace = null,
+                                      ),
+                                      child: GestureDetector(
+                                        onTap: () =>
+                                            _switchToWorkspace(w.index),
+                                        child: AnimatedContainer(
+                                          duration: const Duration(
+                                            milliseconds: 200,
                                           ),
-                                          border: Border.all(
-                                            color: isCurrent
-                                                ? Colors.blueAccent
-                                                : Colors.transparent,
-                                            width: 2.2,
-                                          ),
-                                          boxShadow: [
-                                            BoxShadow(
-                                              color: Colors.black.withOpacity(
-                                                isHovered || isCurrent
-                                                    ? 0.45
-                                                    : 0.2,
-                                              ),
-                                              blurRadius: isHovered ? 26 : 16,
-                                              spreadRadius: -8,
-                                              offset: const Offset(0, 16),
+                                          width:
+                                              160, // <-- (مهم) عرض أصغر وأكثر أناقة
+                                          decoration: BoxDecoration(
+                                            color: baseColor,
+                                            borderRadius: BorderRadius.circular(
+                                              16,
+                                            ), // حواف دائرية
+                                            border: Border.all(
+                                              color: borderColor,
+                                              width: 1.5,
                                             ),
-                                            if (isHovered || isCurrent)
-                                              BoxShadow(
-                                                color: Colors.white.withOpacity(
-                                                  0.1,
-                                                ),
-                                                blurRadius: 18,
-                                                spreadRadius: -12,
-                                                offset: const Offset(-6, -6),
-                                              ),
-                                          ],
-                                        ),
-                                        padding: const EdgeInsets.all(14),
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            Expanded(
-                                              child: Container(
-                                                width: double.infinity,
-                                                decoration: BoxDecoration(
-                                                  gradient: LinearGradient(
-                                                    begin: Alignment.topLeft,
-                                                    end: Alignment.bottomRight,
-                                                    colors: [
-                                                      Colors.white.withOpacity(
-                                                        0.08,
-                                                      ),
-                                                      Colors.black.withOpacity(
-                                                        0.4,
-                                                      ),
-                                                    ],
+                                          ),
+                                          padding: const EdgeInsets.all(14.0),
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Row(
+                                                children: [
+                                                  Icon(
+                                                    Icons
+                                                        .desktop_windows_outlined, // أيقونة
+                                                    color: Colors.white
+                                                        .withOpacity(0.8),
+                                                    size: 18,
                                                   ),
-                                                  borderRadius:
-                                                      BorderRadius.circular(12),
-                                                ),
-                                                child: Center(
-                                                  child: Text(
-                                                    'Workspace ${w.index + 1}',
+                                                  const SizedBox(width: 8),
+                                                  Text(
+                                                    'Workspace', // العنوان
                                                     style: TextStyle(
                                                       color: Colors.white
                                                           .withOpacity(0.8),
                                                       fontWeight:
                                                           FontWeight.w600,
+                                                      fontSize: 14,
                                                     ),
                                                   ),
+                                                ],
+                                              ),
+                                              const Spacer(),
+                                              Text(
+                                                w.name, // "Workspace 1" أو الاسم المخصص
+                                                style: const TextStyle(
+                                                  color: Colors.white,
+                                                  fontWeight: FontWeight.w700,
+                                                  fontSize: 20, // خط كبير وواضح
                                                 ),
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
                                               ),
-                                            ),
-                                            const SizedBox(height: 10),
-                                            Text(
-                                              w.name,
-                                              style: const TextStyle(
-                                                color: Colors.white,
-                                                fontWeight: FontWeight.w700,
-                                              ),
-                                            ),
-                                          ],
+                                            ],
+                                          ),
                                         ),
                                       ),
-                                    ),
-                                  );
-                                },
-                              ),
+                                    );
+                                  },
+                                  // --- (نهاية التعديل) ---
+                                ),
+                        ),
                       ),
                     ),
                   ),
@@ -1428,11 +1444,7 @@ class _LauncherHomeState extends State<LauncherHome> {
                     ),
                   ),
                   // Control Center next to workspaces
-                  SizedBox(
-                    height: 200,
-                    width: 800,
-                    child: ControlCenterPage(),
-                  ),
+                  SizedBox(height: 200, width: 800, child: ControlCenterPage()),
                 ],
               ),
 
