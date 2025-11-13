@@ -1099,7 +1099,7 @@ class _ControlCenterPageState extends State<ControlCenterPage> {
   Widget _buildPowerActionsContainer() {
     return Container(
       width: 250,
-      height: 180,
+      height: 170,
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
       decoration: BoxDecoration(
         color: const Color.fromARGB(88, 2, 2, 2),
@@ -1283,7 +1283,7 @@ class _ControlCenterPageState extends State<ControlCenterPage> {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: const Color.fromARGB(54, 255, 255, 255),
               borderRadius: BorderRadius.circular(12),
             ),
             child: TextButton.icon(
