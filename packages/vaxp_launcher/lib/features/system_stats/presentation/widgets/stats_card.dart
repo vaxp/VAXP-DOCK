@@ -22,7 +22,6 @@ class StatsCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GlassCard(
-      borderColor: color,
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -45,14 +44,14 @@ class StatsCard extends StatelessWidget {
                 // Consumption info to the right of the title
                 if (child != null)
                   DefaultTextStyle(
-                    style: TextStyle(color: AppColors.textPrimary, fontSize: 20, fontWeight: FontWeight.bold),
+                    style: TextStyle(color: Colors.cyan, fontSize: 20, fontWeight: FontWeight.bold),
                     child: child!,
                   )
                 else
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
-                      Text(value, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                      Text(value, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color:  Color.fromARGB(255, 255, 255, 255) )),
                       Text(unit, style: const TextStyle(fontSize: 12, color: Color.fromARGB(255, 255, 255, 255))),
                     ],
                   ),

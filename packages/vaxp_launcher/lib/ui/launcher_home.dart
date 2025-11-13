@@ -4,6 +4,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:dbus/dbus.dart';
+import 'package:glassmorphism/glassmorphism.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:vaxp_core/models/desktop_entry.dart';
 import 'package:file_picker/file_picker.dart';
@@ -1285,18 +1286,7 @@ class _LauncherHomeState extends State<LauncherHome> {
               // Workspace cards strip
               Row(
                 children: [
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                    child: SizedBox(
-                      height: 220,
-                      width: MediaQuery.of(context).size.width / 4,
-                      child: BlocProvider<SystemStatsCubit>(
-                        create: (_) =>
-                            SystemStatsCubit(SystemStatsRepository()),
-                        child: SystemStatsGrid(),
-                      ),
-                    ),
-                  ),
+                  
                   Expanded(
                     child: SizedBox(
                       height: 120,
@@ -1318,7 +1308,7 @@ class _LauncherHomeState extends State<LauncherHome> {
                                       ? Colors.white.withOpacity(0.16)
                                       : Colors.white.withOpacity(0.08);
                                   final hoverScale = isHovered ? 1.04 : 1.0;
-
+              
                                   return MouseRegion(
                                     cursor: SystemMouseCursors.click,
                                     onEnter: (_) => setState(
@@ -1425,14 +1415,23 @@ class _LauncherHomeState extends State<LauncherHome> {
                       ),
                     ),
                   ),
-                  // Control Center next to workspaces
                   Padding(
-                    padding: const EdgeInsets.only(right: 16.0),
+                    padding: const EdgeInsets.symmetric(horizontal: 8.0),
                     child: SizedBox(
-                      height: 120,
-                      width: 400,
-                      child: ControlCenterPage(),
+                      height: 200,
+                      width: MediaQuery.of(context).size.width / 5,
+                      child: BlocProvider<SystemStatsCubit>(
+                        create: (_) =>
+                            SystemStatsCubit(SystemStatsRepository()),
+                        child: SystemStatsGrid(),
+                      ),
                     ),
+                  ),
+                  // Control Center next to workspaces
+                  SizedBox(
+                    height: 200,
+                    width: 800,
+                    child: ControlCenterPage(),
                   ),
                 ],
               ),

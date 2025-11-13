@@ -5,29 +5,31 @@ class GlassCard extends StatelessWidget {
   final Widget child;
   final double height;
   final Color borderColor;
+  
 
   const GlassCard({
     super.key,
     required this.child,
     this.height = 120,
-    this.borderColor = AppColors.glassLight,
+    
+    this.borderColor = const Color.fromARGB(19, 0, 0, 0),
   });
 
   @override
   Widget build(BuildContext context) {
-    const double radius = 24;
+    const double radius = 12;
     return Container(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(radius),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.45),
+            color: const Color.fromARGB(14, 0, 0, 0),
             blurRadius: 32,
             spreadRadius: -14,
             offset: const Offset(0, 24),
           ),
           BoxShadow(
-            color: borderColor.withOpacity(0.25),
+            color: borderColor.withOpacity(0.05),
             blurRadius: 18,
             spreadRadius: -12,
             offset: const Offset(-10, -8),
@@ -45,15 +47,18 @@ class GlassCard extends StatelessWidget {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            AppColors.glassLight.withOpacity(0.9),
-            AppColors.glassDark.withOpacity(0.7),
+            const Color.fromARGB(0, 0, 0, 0),
+            const Color.fromARGB(0, 0, 0, 0),
           ],
-          stops: const [0.05, 0.95],
         ),
+
         borderGradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [borderColor.withOpacity(0.6), borderColor.withOpacity(0.1)],
+          colors: [
+            borderColor.withOpacity(0.1),
+            borderColor.withOpacity(0.05),
+          ],
         ),
         child: Stack(
           children: [
@@ -64,7 +69,7 @@ class GlassCard extends StatelessWidget {
                   gradient: const LinearGradient(
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
-                    colors: [Color(0x4DFFFFFF), Color(0x00000000)],
+                    colors: [Color.fromARGB(0, 0, 0, 0), Color(0x00000000)],
                   ),
                 ),
               ),
@@ -74,7 +79,7 @@ class GlassCard extends StatelessWidget {
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(radius),
                   border: Border.all(
-                    color: Colors.white.withOpacity(0.18),
+                    color: const Color.fromARGB(28, 255, 255, 255),
                     width: 0.9,
                   ),
                 ),
@@ -88,7 +93,7 @@ class GlassCard extends StatelessWidget {
                     begin: Alignment.bottomLeft,
                     end: Alignment.topRight,
                     colors: [
-                      Colors.black.withOpacity(0.25),
+                      const Color.fromARGB(0, 0, 0, 0),
                       Colors.transparent,
                     ],
                   ),
@@ -104,11 +109,11 @@ class GlassCard extends StatelessWidget {
 }
 
 class AppColors {
-  static const Color primary = Color(0xFF2C2C2E);
-  static const Color secondary = Color(0xFF48484A);
+  static const Color primary = Color.fromARGB(0, 0, 0, 0);
+  static const Color secondary = Color.fromARGB(0, 0, 0, 0);
   static const Color accent = Color(0xFF0A84FF);
-  static const Color background = Color(0xFF1C1C1E);
-  static const Color cardBackground = Color(0xFF2C2C2E);
+  static const Color background = Color.fromARGB(0, 0, 0, 0);
+  static const Color cardBackground = Color.fromARGB(0, 0, 0, 0);
   static const Color textPrimary = Color(0xFFFFFFFF);
   static const Color textSecondary = Color(0xFFAEAEB2);
 
@@ -119,6 +124,6 @@ class AppColors {
   static const Color diskColor = Color(0xFFFFD60A);
 
   // Glass effect colors
-  static const Color glassLight = Color(0x0FFFFFFF);
-  static const Color glassDark = Color(0x2F000000);
+  static const Color glassLight = Color.fromARGB(0, 255, 255, 255);
+  static const Color glassDark = Color.fromARGB(0, 0, 0, 0);
 }

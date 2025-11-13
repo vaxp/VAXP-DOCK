@@ -16,11 +16,12 @@ class SystemStatsGrid extends StatelessWidget {
       builder: (context, state) {
         if (state is SystemStatsLoaded) {
           return GridView.count(
-            shrinkWrap: true,
-            crossAxisCount: 1,
-            mainAxisSpacing: 2,
-            crossAxisSpacing: 2,
-            childAspectRatio: 10,
+
+            // shrinkWrap: true,
+            crossAxisCount: 2,
+            mainAxisSpacing: 10,
+            crossAxisSpacing:10,
+            childAspectRatio: 2,
             children: [
               StatsCard(
                 title: AppStrings.cpu,
@@ -31,7 +32,7 @@ class SystemStatsGrid extends StatelessWidget {
                 child: Text('% ${state.stats.cpuUsage.toStringAsFixed(1)}',
                   style: TextStyle(
                     color: AppColors.textPrimary,
-                    fontSize: 20,
+                    fontSize: 14,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -45,7 +46,7 @@ class SystemStatsGrid extends StatelessWidget {
                 child: Text('% ${state.stats.memoryUsage.toStringAsFixed(1)}',
                   style: TextStyle(
                     color: AppColors.textPrimary,
-                    fontSize: 20,
+                    fontSize: 14,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -59,7 +60,7 @@ class SystemStatsGrid extends StatelessWidget {
                 child: Text('${state.stats.networkDownload.toStringAsFixed(1)}/${state.stats.networkUpload.toStringAsFixed(1)} KB/s ',
                   style: TextStyle(
                     color: AppColors.textPrimary,
-                    fontSize: 16,
+                    fontSize: 14,
                     fontWeight: FontWeight.bold,
                   ),
                 ),

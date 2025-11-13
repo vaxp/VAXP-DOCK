@@ -7,10 +7,10 @@ class AppStrings {
   static const String search = 'Search processes...';
   
   // System Stats Cards
-  static const String cpu = 'CPU Usage';
+  static const String cpu = 'CPU ';
   static const String ram = 'Memory';
-  static const String network = 'Network';
-  static const String disk = 'Disk Activity';
+  static const String network = 'Net';
+  static const String disk = '';
   
   // Process List Headers
   static const String processName = 'Process Name';
