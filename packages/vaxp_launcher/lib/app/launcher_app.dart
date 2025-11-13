@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import '../ui/launcher_home.dart';
+import '../features/search/application/search_cubit.dart';
+import '../features/search/data/repositories/search_repository.dart';
 
 class LauncherApp extends StatelessWidget {
   const LauncherApp({super.key});
@@ -15,7 +18,10 @@ class LauncherApp extends StatelessWidget {
           brightness: Brightness.dark,
         ),
       ),
-      home: const LauncherHome(),
+      home: BlocProvider(
+        create: (context) => SearchCubit(SearchRepository()),
+        child: const LauncherHome(),
+      ),
       debugShowCheckedModeBanner: false,
     );
   }
