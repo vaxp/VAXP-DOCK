@@ -1,0 +1,947 @@
+// lib/main.dart
+import 'dart:convert';
+import 'dart:math';
+
+import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+void main() {
+  runApp(NotesCustomizableApp());
+}
+
+/// --------------------
+/// Models & Persistence
+/// --------------------
+
+class WidgetMetadata {
+  String id;
+  double x;
+  double y;
+  double width;
+  double height;
+  double rotation;
+  double opacity;
+  double radius;
+  String backgroundColor; // hex
+  String textColor; // hex
+  int zIndex;
+  bool visible;
+
+  WidgetMetadata({
+    required this.id,
+    this.x = 50,
+    this.y = 50,
+    this.width = 220,
+    this.height = 140,
+    this.rotation = 0.0,
+    this.opacity = 1.0,
+    this.radius = 12.0,
+    this.backgroundColor = '#FFEE58',
+    this.textColor = '#000000',
+    this.zIndex = 0,
+    this.visible = true,
+  });
+
+  factory WidgetMetadata.fromJson(Map<String, dynamic> j) {
+    return WidgetMetadata(
+      id: j['id'] ?? 'widget_${DateTime.now().millisecondsSinceEpoch}',
+      x: (j['x'] ?? 50).toDouble(),
+      y: (j['y'] ?? 50).toDouble(),
+      width: (j['width'] ?? 220).toDouble(),
+      height: (j['height'] ?? 140).toDouble(),
+      rotation: (j['rotation'] ?? 0.0).toDouble(),
+      opacity: (j['opacity'] ?? 1.0).toDouble(),
+      radius: (j['radius'] ?? 12.0).toDouble(),
+      backgroundColor: j['backgroundColor'] ?? '#FFEE58',
+      textColor: j['textColor'] ?? '#000000',
+      zIndex: (j['zIndex'] ?? 0).toInt(),
+      visible: j['visible'] ?? true,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'x': x,
+        'y': y,
+        'width': width,
+        'height': height,
+        'rotation': rotation,
+        'opacity': opacity,
+        'radius': radius,
+        'backgroundColor': backgroundColor,
+        'textColor': textColor,
+        'zIndex': zIndex,
+        'visible': visible,
+      };
+}
+
+class NoteModel {
+  String id;
+  String title;
+  String body;
+  String color; // hex
+
+  NoteModel({required this.id, this.title = '', this.body = '', this.color = '#FFEE58'});
+
+  factory NoteModel.fromJson(Map<String, dynamic> j) {
+    return NoteModel(
+      id: j['id'],
+      title: j['title'] ?? '',
+      body: j['body'] ?? '',
+      color: j['color'] ?? '#FFEE58',
+    );
+  }
+
+  Map<String, dynamic> toJson() => {'id': id, 'title': title, 'body': body, 'color': color};
+}
+
+class MetadataStore extends ChangeNotifier {
+  Map<String, WidgetMetadata> _meta = {};
+  Map<String, NoteModel> _notes = {};
+  bool editMode = false;
+
+  SharedPreferences? _prefs;
+
+  MetadataStore() {
+    _load();
+  }
+
+  List<WidgetMetadata> get allMeta => _meta.values.toList()..sort((a, b) => a.zIndex.compareTo(b.zIndex));
+  List<NoteModel> get allNotes => _notes.values.toList();
+
+  WidgetMetadata ensureMetaFor(String id) {
+    if (!_meta.containsKey(id)) {
+      _meta[id] = WidgetMetadata(id: id);
+      saveAll();
+    }
+    return _meta[id]!;
+  }
+
+  void updateMeta(String id, WidgetMetadata m) {
+    _meta[id] = m;
+    notifyListeners();
+    saveAll();
+  }
+
+  void removeMeta(String id) {
+    _meta.remove(id);
+    notifyListeners();
+    saveAll();
+  }
+
+  void addNote(NoteModel note) {
+    _notes[note.id] = note;
+    // create default meta for it
+    if (!_meta.containsKey('note_${note.id}')) {
+      _meta['note_${note.id}'] = WidgetMetadata(
+        id: 'note_${note.id}',
+        x: 60.0 + (_meta.length % 5) * 30,
+        y: 60.0 + (_meta.length % 4) * 30,
+        width: 220,
+        height: 140,
+        backgroundColor: note.color,
+      );
+    }
+    notifyListeners();
+    saveAll();
+  }
+
+  void updateNote(NoteModel note) {
+    _notes[note.id] = note;
+    notifyListeners();
+    saveAll();
+  }
+
+  void removeNoteById(String id) {
+    _notes.remove(id);
+    _meta.remove('note_$id');
+    notifyListeners();
+    saveAll();
+  }
+
+  void bringToFront(String widgetId) {
+    // set zIndex to max+1
+    int maxz = 0;
+    for (var m in _meta.values) {
+      if (m.zIndex > maxz) maxz = m.zIndex;
+    }
+    if (_meta.containsKey(widgetId)) {
+      _meta[widgetId]!.zIndex = maxz + 1;
+      notifyListeners();
+      saveAll();
+    }
+  }
+
+  Future<void> _load() async {
+    _prefs = await SharedPreferences.getInstance();
+    String? metaJson = _prefs!.getString('ui_meta_v1');
+    String? notesJson = _prefs!.getString('notes_v1');
+    if (metaJson != null) {
+      try {
+        Map<String, dynamic> mm = json.decode(metaJson);
+        _meta = mm.map((k, v) => MapEntry(k, WidgetMetadata.fromJson(v)));
+      } catch (e) {
+        print('Failed parse meta: $e');
+      }
+    }
+    if (notesJson != null) {
+      try {
+        Map<String, dynamic> nn = json.decode(notesJson);
+        _notes = nn.map((k, v) => MapEntry(k, NoteModel.fromJson(v)));
+      } catch (e) {
+        print('Failed parse notes: $e');
+      }
+    } else {
+      // seed a couple notes
+      var n1 = NoteModel(id: '1', title: 'Welcome', body: 'This is an editable note. Long-press while in edit mode to open settings.', color: '#FFEE58');
+      var n2 = NoteModel(id: '2', title: 'To Do', body: '- Learn customization\n- Build more widgets', color: '#B3E5FC');
+      addNote(n1);
+      addNote(n2);
+    }
+    notifyListeners();
+  }
+
+  Future<void> saveAll() async {
+    if (_prefs == null) _prefs = await SharedPreferences.getInstance();
+    Map<String, dynamic> mm = _meta.map((k, v) => MapEntry(k, v.toJson()));
+    await _prefs!.setString('ui_meta_v1', json.encode(mm));
+    Map<String, dynamic> nn = _notes.map((k, v) => MapEntry(k, v.toJson()));
+    await _prefs!.setString('notes_v1', json.encode(nn));
+  }
+
+  void toggleEditMode() {
+    editMode = !editMode;
+    notifyListeners();
+  }
+
+  void resetLayout() {
+    _meta.clear();
+    notifyListeners();
+    saveAll();
+  }
+}
+
+/// --------------------
+/// UI: App + Shell
+/// --------------------
+
+class NotesCustomizableApp extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'Customizable Notes Shell',
+      theme: ThemeData.light(),
+      home: ChangeNotifierProvider(
+        create: (_) => MetadataStore(),
+        child: ShellHomePage(),
+      ),
+    );
+  }
+}
+
+/// Simple ChangeNotifierProvider (minimal, to avoid adding provider package)
+class ChangeNotifierProvider extends StatefulWidget {
+  final Widget child;
+  final MetadataStore Function(BuildContext) create;
+
+  ChangeNotifierProvider({required this.create, required this.child});
+
+  @override
+  _ChangeNotifierProviderState createState() => _ChangeNotifierProviderState();
+
+  static MetadataStore of(BuildContext context) {
+    final _Inherited? inh = context.dependOnInheritedWidgetOfExactType<_Inherited>();
+    return inh!.store;
+  }
+}
+
+class _ChangeNotifierProviderState extends State<ChangeNotifierProvider> {
+  late MetadataStore store;
+
+  @override
+  void initState() {
+    super.initState();
+    store = widget.create(context);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return _Inherited(store: store, child: widget.child);
+  }
+
+  @override
+  void dispose() {
+    store.dispose();
+    super.dispose();
+  }
+}
+
+class _Inherited extends InheritedWidget {
+  final MetadataStore store;
+  _Inherited({required Widget child, required this.store}) : super(child: child);
+
+  @override
+  bool updateShouldNotify(covariant _Inherited oldWidget) => oldWidget.store != store;
+}
+
+/// Home / Desktop-like Shell
+class ShellHomePage extends StatefulWidget {
+  @override
+  _ShellHomePageState createState() => _ShellHomePageState();
+}
+
+class _ShellHomePageState extends State<ShellHomePage> {
+  String? selectedWidgetId;
+  final GlobalKey stackKey = GlobalKey();
+
+  @override
+  Widget build(BuildContext context) {
+    final store = ChangeNotifierProvider.of(context);
+    // Use AnimatedBuilder-like subscription
+    return AnimatedBuilder(
+      animation: store,
+      builder: (context, _) {
+        return Scaffold(
+          appBar: AppBar(
+            title: Text('Customizable Notes Shell'),
+            actions: [
+              IconButton(
+                  icon: Icon(store.editMode ? Icons.check : Icons.edit),
+                  tooltip: store.editMode ? 'Exit Edit Mode' : 'Enter Edit Mode',
+                  onPressed: () {
+                    store.toggleEditMode();
+                    setState(() {
+                      selectedWidgetId = null;
+                    });
+                  }),
+              IconButton(
+                  icon: Icon(Icons.save),
+                  tooltip: 'Export Layout (copy JSON from console)',
+                  onPressed: () async {
+                    // just print to console here
+                    var meta = store.allMeta.map((m) => m.toJson()).toList();
+                    print(jsonEncode(meta));
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Layout JSON printed to console.')));
+                  }),
+              IconButton(
+                  icon: Icon(Icons.refresh),
+                  tooltip: 'Reset Layout',
+                  onPressed: () {
+                    store.resetLayout();
+                  }),
+            ],
+          ),
+          floatingActionButton: store.editMode
+              ? null
+              : FloatingActionButton(
+                  child: Icon(Icons.add),
+                  onPressed: () {
+                    String nid = DateTime.now().millisecondsSinceEpoch.toString();
+                    store.addNote(NoteModel(id: nid, title: 'New Note', body: 'Tap to edit', color: '#FFF9C4'));
+                  }),
+          body: Stack(
+            key: stackKey,
+            children: [
+              // Wallpaper
+              Positioned.fill(child: Container(color: Colors.grey.shade200)),
+              // example top bar, widgets, etc.
+              // Render notes and other widgets based on metadata and factory
+              ..._buildWidgets(context, store),
+              // settings panel
+              if (store.editMode)
+                Positioned(
+                  right: 0,
+                  top: 0,
+                  bottom: 0,
+                  width: 320,
+                  child: Container(
+                    color: Colors.white,
+                    child: selectedWidgetId == null
+                        ? Center(child: Text('Edit Mode\n\nSelect a widget to open settings', textAlign: TextAlign.center))
+                        : SettingsPanel(
+                            widgetId: selectedWidgetId!,
+                            onClose: () => setState(() => selectedWidgetId = null),
+                          ),
+                  ),
+                ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  List<Widget> _buildWidgets(BuildContext context, MetadataStore store) {
+    List<Widget> list = [];
+    // Build notes from store.allNotes
+    for (var note in store.allNotes) {
+      String wid = 'note_${note.id}';
+      var meta = store.ensureMetaFor(wid);
+      // create widget through factory
+      Widget child = WidgetFactory.buildNoteCard(note, meta, onEdit: () {
+        if (!store.editMode) {
+          // open editor
+          _openNoteEditor(context, note);
+        }
+      });
+      list.add(
+        CustomizableWidget(
+          key: ValueKey(wid),
+          meta: meta,
+          child: child,
+          onUpdate: (m) {
+            store.updateMeta(wid, m);
+          },
+          onTapSelected: () {
+            setState(() {
+              selectedWidgetId = wid;
+            });
+            store.bringToFront(wid);
+          },
+          editMode: store.editMode,
+          onDelete: () {
+            // delete note
+            store.removeNoteById(note.id);
+            if (selectedWidgetId == wid) selectedWidgetId = null;
+          },
+        ),
+      );
+    }
+
+    // You can place other system widgets here e.g. search bar, quick settings; for demo keep minimal
+    // Sort by zIndex
+    list.sort((a, b) {
+      final ma = (a as CustomizableWidget).meta.zIndex;
+      final mb = (b as CustomizableWidget).meta.zIndex;
+      return ma.compareTo(mb);
+    });
+
+    return list;
+  }
+
+  void _openNoteEditor(BuildContext context, NoteModel note) {
+    showDialog(
+        context: context,
+        builder: (ctx) {
+          final titleCtrl = TextEditingController(text: note.title);
+          final bodyCtrl = TextEditingController(text: note.body);
+          return AlertDialog(
+            title: Text('Edit Note'),
+            content: SingleChildScrollView(
+              child: Column(
+                children: [
+                  TextField(controller: titleCtrl, decoration: InputDecoration(labelText: 'Title')),
+                  SizedBox(height: 8),
+                  TextField(controller: bodyCtrl, decoration: InputDecoration(labelText: 'Body'), maxLines: 8),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx), child: Text('Cancel')),
+              TextButton(
+                  onPressed: () {
+                    final store = ChangeNotifierProvider.of(context);
+                    note.title = titleCtrl.text;
+                    note.body = bodyCtrl.text;
+                    store.updateNote(note);
+                    Navigator.pop(ctx);
+                  },
+                  child: Text('Save')),
+            ],
+          );
+        });
+  }
+}
+
+/// --------------------
+/// WidgetFactory
+/// --------------------
+
+class WidgetFactory {
+  static Widget buildNoteCard(NoteModel note, WidgetMetadata meta, {required VoidCallback onEdit}) {
+    Color bg = _hexToColor(meta.backgroundColor);
+    Color textC = _hexToColor(meta.textColor);
+    return Opacity(
+      opacity: meta.opacity,
+      child: Container(
+        width: meta.width,
+        height: meta.height,
+        decoration: BoxDecoration(
+          color: bg,
+          borderRadius: BorderRadius.circular(meta.radius),
+          boxShadow: [
+            if (meta.zIndex > 0) BoxShadow(color: Colors.black26, blurRadius: 6, offset: Offset(2, 2)),
+          ],
+        ),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: onEdit,
+            child: Padding(
+              padding: EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(note.title, style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: textC)),
+                  SizedBox(height: 6),
+                  Expanded(child: SingleChildScrollView(child: Text(note.body, style: TextStyle(color: textC)))),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  static Color _hexToColor(String hex) {
+    hex = hex.replaceAll('#', '');
+    if (hex.length == 6) hex = 'FF' + hex;
+    return Color(int.parse(hex, radix: 16));
+  }
+}
+
+/// --------------------
+/// CustomizableWidget
+/// --------------------
+
+typedef MetaCallback = void Function(WidgetMetadata m);
+
+class CustomizableWidget extends StatefulWidget {
+  final WidgetMetadata meta;
+  final Widget child;
+  final MetaCallback onUpdate;
+  final VoidCallback onTapSelected;
+  final bool editMode;
+  final VoidCallback? onDelete;
+
+  CustomizableWidget({
+    Key? key,
+    required this.meta,
+    required this.child,
+    required this.onUpdate,
+    required this.onTapSelected,
+    this.editMode = false,
+    this.onDelete,
+  }) : super(key: key);
+
+  @override
+  _CustomizableWidgetState createState() => _CustomizableWidgetState();
+}
+
+class _CustomizableWidgetState extends State<CustomizableWidget> {
+  late double localX, localY, localW, localH, localRotation, localOpacity, localRadius;
+  bool dragging = false;
+  bool resizing = false;
+  Offset? lastFocalPoint;
+
+  @override
+  void initState() {
+    super.initState();
+    _sync();
+  }
+
+  void _sync() {
+    localX = widget.meta.x;
+    localY = widget.meta.y;
+    localW = widget.meta.width;
+    localH = widget.meta.height;
+    localRotation = widget.meta.rotation;
+    localOpacity = widget.meta.opacity;
+    localRadius = widget.meta.radius;
+  }
+
+  void _applyToMetaAndSave() {
+    final m = WidgetMetadata(
+      id: widget.meta.id,
+      x: localX,
+      y: localY,
+      width: localW.clamp(80, 1200),
+      height: localH.clamp(60, 1200),
+      rotation: localRotation,
+      opacity: localOpacity,
+      radius: localRadius,
+      backgroundColor: widget.meta.backgroundColor,
+      textColor: widget.meta.textColor,
+      zIndex: widget.meta.zIndex,
+      visible: widget.meta.visible,
+    );
+    widget.onUpdate(m);
+  }
+
+  @override
+  void didUpdateWidget(covariant CustomizableWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // if metadata updated externally, sync local
+    if (oldWidget.meta.x != widget.meta.x ||
+        oldWidget.meta.y != widget.meta.y ||
+        oldWidget.meta.width != widget.meta.width ||
+        oldWidget.meta.height != widget.meta.height) {
+      _sync();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // In case visible = false
+    if (!widget.meta.visible) return SizedBox.shrink();
+
+    return Positioned(
+      left: localX,
+      top: localY,
+      child: GestureDetector(
+        onTap: () {
+          widget.onTapSelected();
+        },
+        onScaleStart: (details) {
+          if (!widget.editMode) return;
+          dragging = true;
+          lastFocalPoint = details.focalPoint;
+        },
+        onScaleUpdate: (details) {
+          if (!widget.editMode) return;
+          if (details.pointerCount == 1) {
+            // single-finger: pan/drag
+            setState(() {
+              localX += details.focalPointDelta.dx;
+              localY += details.focalPointDelta.dy;
+            });
+            _applyToMetaAndSave();
+          } else if (details.pointerCount == 2) {
+            // two-finger: rotate and scale
+            setState(() {
+              localRotation += details.rotation;
+              double factor = details.scale;
+              localW = (localW * factor).clamp(80, 1200);
+              localH = (localH * factor).clamp(60, 1200);
+            });
+            _applyToMetaAndSave();
+          }
+        },
+        onScaleEnd: (details) {
+          dragging = false;
+          lastFocalPoint = null;
+        },
+        child: Transform.rotate(
+          angle: localRotation,
+          child: Stack(
+            children: [
+              // core child
+              Container(
+                width: localW,
+                height: localH,
+                child: widget.child,
+              ),
+
+              // overlay controls in edit mode
+              if (widget.editMode)
+                Positioned.fill(
+                  child: IgnorePointer(
+                    ignoring: false,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.blueAccent.withOpacity(0.8)),
+                        borderRadius: BorderRadius.circular(localRadius),
+                        color: Colors.transparent,
+                      ),
+                    ),
+                  ),
+                ),
+
+              // resize handle bottom-right
+              if (widget.editMode)
+                Positioned(
+                  right: -12,
+                  bottom: -12,
+                  child: GestureDetector(
+                    onPanStart: (_) {
+                      resizing = true;
+                    },
+                    onPanUpdate: (details) {
+                      setState(() {
+                        localW += details.delta.dx;
+                        localH += details.delta.dy;
+                      });
+                      _applyToMetaAndSave();
+                    },
+                    onPanEnd: (_) {
+                      resizing = false;
+                    },
+                    child: Container(
+                      width: 24,
+                      height: 24,
+                      decoration: BoxDecoration(
+                        color: Colors.blueAccent,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(Icons.open_in_full, color: Colors.white, size: 14),
+                    ),
+                  ),
+                ),
+
+              // rotate handle top-right
+              if (widget.editMode)
+                Positioned(
+                  right: -12,
+                  top: -12,
+                  child: GestureDetector(
+                    onPanUpdate: (details) {
+                      // rotate based on horizontal delta
+                      setState(() {
+                        localRotation += details.delta.dx * 0.01;
+                      });
+                      _applyToMetaAndSave();
+                    },
+                    child: Container(
+                      width: 24,
+                      height: 24,
+                      decoration: BoxDecoration(color: Colors.orangeAccent, shape: BoxShape.circle),
+                      child: Icon(Icons.rotate_right, color: Colors.white, size: 14),
+                    ),
+                  ),
+                ),
+
+              // quick actions: delete & settings
+              if (widget.editMode)
+                Positioned(
+                  left: -12,
+                  top: -12,
+                  child: Row(
+                    children: [
+                      GestureDetector(
+                        onTap: () {
+                          // open settings by notifying parent
+                          widget.onTapSelected();
+                        },
+                        child: Container(
+                          width: 36,
+                          height: 36,
+                          decoration: BoxDecoration(color: Colors.white70, shape: BoxShape.circle),
+                          child: Icon(Icons.settings, size: 18),
+                        ),
+                      ),
+                      SizedBox(width: 6),
+                      GestureDetector(
+                        onTap: () {
+                          // delete
+                          if (widget.onDelete != null) {
+                            widget.onDelete!();
+                          }
+                        },
+                        child: Container(
+                          width: 36,
+                          height: 36,
+                          decoration: BoxDecoration(color: Colors.redAccent, shape: BoxShape.circle),
+                          child: Icon(Icons.delete, size: 18, color: Colors.white),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// --------------------
+/// Settings Panel
+/// --------------------
+
+class SettingsPanel extends StatefulWidget {
+  final String widgetId;
+  final VoidCallback onClose;
+
+  SettingsPanel({required this.widgetId, required this.onClose});
+
+  @override
+  _SettingsPanelState createState() => _SettingsPanelState();
+}
+
+class _SettingsPanelState extends State<SettingsPanel> {
+  @override
+  Widget build(BuildContext context) {
+    final store = ChangeNotifierProvider.of(context);
+    var meta = store.ensureMetaFor(widget.widgetId);
+    return Padding(
+      padding: EdgeInsets.all(12),
+      child: SingleChildScrollView(
+        child: Column(
+          children: [
+            Row(children: [Expanded(child: Text('Widget Settings', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold))), IconButton(icon: Icon(Icons.close), onPressed: widget.onClose)]),
+            SizedBox(height: 12),
+            _buildNumberField('X', meta.x.toStringAsFixed(0), (v) {
+              meta.x = double.tryParse(v) ?? meta.x;
+              store.updateMeta(widget.widgetId, meta);
+            }),
+            _buildNumberField('Y', meta.y.toStringAsFixed(0), (v) {
+              meta.y = double.tryParse(v) ?? meta.y;
+              store.updateMeta(widget.widgetId, meta);
+            }),
+            _buildNumberField('Width', meta.width.toStringAsFixed(0), (v) {
+              meta.width = double.tryParse(v) ?? meta.width;
+              store.updateMeta(widget.widgetId, meta);
+            }),
+            _buildNumberField('Height', meta.height.toStringAsFixed(0), (v) {
+              meta.height = double.tryParse(v) ?? meta.height;
+              store.updateMeta(widget.widgetId, meta);
+            }),
+            SizedBox(height: 8),
+            _buildSlider('Opacity', meta.opacity, 0.1, 1.0, (v) {
+              meta.opacity = v;
+              store.updateMeta(widget.widgetId, meta);
+            }),
+            SizedBox(height: 8),
+            _buildSlider('Radius', meta.radius, 0.0, 40.0, (v) {
+              meta.radius = v;
+              store.updateMeta(widget.widgetId, meta);
+            }),
+            SizedBox(height: 8),
+            _buildColorPicker('Background', meta.backgroundColor, (hex) {
+              meta.backgroundColor = hex;
+              store.updateMeta(widget.widgetId, meta);
+            }),
+            SizedBox(height: 8),
+            _buildColorPicker('Text', meta.textColor, (hex) {
+              meta.textColor = hex;
+              store.updateMeta(widget.widgetId, meta);
+            }),
+            SizedBox(height: 8),
+            SwitchListTile(
+                title: Text('Visible'),
+                value: meta.visible,
+                onChanged: (v) {
+                  meta.visible = v;
+                  store.updateMeta(widget.widgetId, meta);
+                }),
+            SizedBox(height: 8),
+            ElevatedButton.icon(
+              icon: Icon(Icons.restore),
+              label: Text('Reset to defaults'),
+              onPressed: () {
+                var nm = WidgetMetadata(id: meta.id);
+                store.updateMeta(widget.widgetId, nm);
+              },
+            ),
+            SizedBox(height: 8),
+            ElevatedButton.icon(
+              icon: Icon(Icons.copy),
+              label: Text('Copy layout JSON (console)'),
+              onPressed: () {
+                final arr = store.allMeta.map((m) => m.toJson()).toList();
+                print(jsonEncode(arr));
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Layout JSON printed to console.')));
+              },
+            ),
+            SizedBox(height: 18),
+            ElevatedButton.icon(
+              icon: Icon(Icons.close),
+              label: Text('Close'),
+              onPressed: widget.onClose,
+            ),
+            SizedBox(height: 120),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNumberField(String label, String value, Function(String) onChanged) {
+    final ctrl = TextEditingController(text: value);
+    return Padding(
+      padding: EdgeInsets.symmetric(vertical: 6),
+      child: Row(children: [
+        Container(width: 80, child: Text(label)),
+        Expanded(
+            child: TextField(
+          controller: ctrl,
+          keyboardType: TextInputType.number,
+          onSubmitted: (v) => onChanged(v),
+        )),
+      ]),
+    );
+  }
+
+  Widget _buildSlider(String label, double v, double min, double max, ValueChanged<double> onChanged) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('$label: ${v.toStringAsFixed(2)}'),
+        Slider(value: v, min: min, max: max, onChanged: onChanged),
+      ],
+    );
+  }
+
+  Widget _buildColorPicker(String label, String hex, ValueChanged<String> onChanged) {
+    Color c = _hexToColor(hex);
+    return Row(
+      children: [
+        Container(width: 80, child: Text(label)),
+        GestureDetector(
+          onTap: () async {
+            Color? picked = await showDialog(
+                context: context,
+                builder: (ctx) {
+                  Color tmp = c;
+                  return AlertDialog(
+                    title: Text('Pick color'),
+                    content: StatefulBuilder(builder: (context, setState) {
+                      return Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          ColorSliderRow('R', tmp.red, (v) => setState(() => tmp = tmp.withRed(v))),
+                          ColorSliderRow('G', tmp.green, (v) => setState(() => tmp = tmp.withGreen(v))),
+                          ColorSliderRow('B', tmp.blue, (v) => setState(() => tmp = tmp.withBlue(v))),
+                          SizedBox(height: 8),
+                          Container(height: 40, color: tmp),
+                        ],
+                      );
+                    }),
+                    actions: [
+                      TextButton(onPressed: () => Navigator.pop(ctx), child: Text('Cancel')),
+                      TextButton(onPressed: () => Navigator.pop(ctx, tmp), child: Text('Select')),
+                    ],
+                  );
+                });
+            if (picked != null) {
+              String h = '#${picked.value.toRadixString(16).padLeft(8, '0').substring(2).toUpperCase()}';
+              onChanged(h);
+            }
+          },
+          child: Container(width: 36, height: 36, color: c),
+        )
+      ],
+    );
+  }
+
+  Color _hexToColor(String hex) {
+    hex = hex.replaceAll('#', '');
+    if (hex.length == 6) hex = 'FF' + hex;
+    return Color(int.parse(hex, radix: 16));
+  }
+}
+
+class ColorSliderRow extends StatelessWidget {
+  final String label;
+  final int value;
+  final void Function(int) onChanged;
+  ColorSliderRow(this.label, this.value, this.onChanged);
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(children: [
+      Container(width: 20, child: Text(label)),
+      Expanded(
+          child: Slider(
+        value: value.toDouble(),
+        min: 0,
+        max: 255,
+        onChanged: (v) => onChanged(v.round()),
+      )),
+      SizedBox(width: 6),
+      Text(value.toString()),
+    ]);
+  }
+}

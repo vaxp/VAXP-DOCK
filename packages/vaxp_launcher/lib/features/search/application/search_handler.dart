@@ -2,53 +2,31 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:math_expressions/math_expressions.dart';
-import 'package:vaxp_launcher/features/search/application/search_cubit.dart';
-import 'package:vaxp_launcher/features/search/application/search_state.dart';
-import 'package:vaxp_launcher/features/search/presentation/widgets/search_dialogs.dart';
-import 'package:vaxp_core/models/desktop_entry.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import '../domain/models/search_result.dart';
+import '../presentation/widgets/search_dialogs.dart';
+import '../application/search_cubit.dart';
+import '../../../widgets/password_dialog.dart';
 
-import '../../../../widgets/password_dialog.dart';
-import '../../domain/models/search_result.dart';
+/// Service to handle special search commands and operations
+class SearchHandler {
+  final BuildContext context;
+  final VoidCallback onResetSearch;
 
-class SearchBar extends StatefulWidget {
-  const SearchBar({
-    super.key,
-    required this.onFilterApps,
-    required this.allAppsFuture,
-    this.onSettingsPressed,
+  SearchHandler({
+    required this.context,
+    required this.onResetSearch,
   });
 
-  final void Function(String query) onFilterApps;
-  final Future<List<DesktopEntry>> allAppsFuture;
-  final VoidCallback? onSettingsPressed;
-
-  @override
-  State<SearchBar> createState() => _SearchBarState();
-}
-
-class _SearchBarState extends State<SearchBar> {
-  final _searchController = TextEditingController();
-
-  @override
-  void dispose() {
-    _searchController.dispose();
-    super.dispose();
-  }
-
-  void _handleSearchSubmit(String value) {
-    final query = value.trim();
-    if (query.isEmpty) {
-      widget.onFilterApps('');
-      context.read<SearchCubit>().clearQuery();
-      return;
+  /// Main entry point for handling search submissions
+  /// Returns true if the query was handled as a special command
+  bool handleSearch(String query) {
+    final trimmed = query.trim();
+    if (trimmed.isEmpty) {
+      return false;
     }
-    if (_handleSpecialSearch(query)) {
-      return;
-    }
-    widget.onFilterApps(query);
-    context.read<SearchCubit>().updateQuery(query);
+    return _handleSpecialSearch(trimmed);
   }
 
   bool _handleSpecialSearch(String query) {
@@ -88,7 +66,7 @@ class _SearchBarState extends State<SearchBar> {
         final url =
             'https://github.com/search?q=${Uri.encodeQueryComponent(term)}';
         unawaited(_launchWebSearch(url, description: 'GitHub'));
-        _resetSearchField();
+        onResetSearch();
       }
       return true;
     }
@@ -100,7 +78,7 @@ class _SearchBarState extends State<SearchBar> {
         final url =
             'https://www.google.com/search?q=${Uri.encodeQueryComponent(term)}';
         unawaited(_launchWebSearch(url, description: 'Google'));
-        _resetSearchField();
+        onResetSearch();
       }
       return true;
     }
@@ -111,14 +89,14 @@ class _SearchBarState extends State<SearchBar> {
     String? password;
     String commandToRun = command;
 
-    if (commandRequiresSudo(command)) {
+    if (_commandRequiresSudo(command)) {
       password = await showPasswordDialog(context);
-      if (!mounted) return;
+      if (!context.mounted) return;
       if (password == null || password.trim().isEmpty) {
         _showSnackMessage('Command cancelled.');
         return;
       }
-      commandToRun = injectSudoStdinFlag(command);
+      commandToRun = _injectSudoStdinFlag(command);
       password = password.trim();
     }
 
@@ -148,11 +126,23 @@ class _SearchBarState extends State<SearchBar> {
     }
 
     await _showCommandConsole(command, process);
-    _resetSearchField();
+    onResetSearch();
+  }
+
+  bool _commandRequiresSudo(String command) {
+    return command.trim().startsWith('sudo ') ||
+        command.contains('sudo ') ||
+        command.contains(' pkexec ') ||
+        command.contains(' gksudo ');
+  }
+
+  String _injectSudoStdinFlag(String command) {
+    if (command.contains('sudo -S')) return command;
+    return command.replaceFirst(RegExp(r'\bsudo\b'), 'sudo -S');
   }
 
   Future<void> _showCommandConsole(String command, Process process) async {
-    if (!mounted) return;
+    if (!context.mounted) return;
     await showDialog(
       context: context,
       barrierDismissible: false,
@@ -172,11 +162,11 @@ class _SearchBarState extends State<SearchBar> {
         ..bindVariableName('e', Number(math.e));
       final value = exp.evaluate(EvaluationType.REAL, contextModel);
 
-      if (!mounted) return;
+      if (!context.mounted) return;
 
       final formatted = _formatResultValue(value);
       await showMathResultDialog(context, expression, formatted);
-      _resetSearchField();
+      onResetSearch();
     } catch (e, st) {
       debugPrint('Failed to evaluate expression "$expression": $e\n$st');
       _showSnackMessage(
@@ -186,12 +176,27 @@ class _SearchBarState extends State<SearchBar> {
     }
   }
 
+  String _formatResultValue(dynamic value) {
+    if (value is num) {
+      if (value is double) {
+        if (value.isNaN || value.isInfinite) return value.toString();
+        if ((value - value.round()).abs() < 1e-10) {
+          return value.round().toString();
+        }
+        final formatted = value.toStringAsPrecision(10);
+        return formatted.replaceFirst(RegExp(r'\.?0+$'), '');
+      }
+      return value.toString();
+    }
+    return value == null ? '' : value.toString();
+  }
+
   Future<void> _performFileSearch(String term) async {
-    final cubit = context.read<SearchCubit>();
+    final searchCubit = context.read<SearchCubit>();
     List<SearchResult> results = [];
     try {
       await _runWithLoading('Searching files...', () async {
-        results = await cubit.performFileSearch(term);
+        results = await searchCubit.performFileSearch(term);
       });
     } catch (e, st) {
       debugPrint('File search failed for "$term": $e\n$st');
@@ -202,17 +207,17 @@ class _SearchBarState extends State<SearchBar> {
       return;
     }
 
-    if (!mounted) return;
+    if (!context.mounted) return;
 
     await showFileResultsDialog(context, term, results);
-    _resetSearchField();
+    onResetSearch();
   }
 
   Future<void> _runWithLoading(
     String message,
     Future<void> Function() action,
   ) async {
-    if (!mounted) {
+    if (!context.mounted) {
       await action();
       return;
     }
@@ -240,7 +245,7 @@ class _SearchBarState extends State<SearchBar> {
     try {
       await action();
     } finally {
-      if (mounted) {
+      if (context.mounted) {
         final navigator = Navigator.of(context, rootNavigator: true);
         if (navigator.canPop()) {
           navigator.pop();
@@ -255,7 +260,7 @@ class _SearchBarState extends State<SearchBar> {
   }) async {
     try {
       final result = await Process.run('xdg-open', [url]);
-      if (result.exitCode != 0 && mounted) {
+      if (result.exitCode != 0 && context.mounted) {
         _showSnackMessage(
           'Failed to open $description search (exit code ${result.exitCode}).',
           backgroundColor: Colors.redAccent,
@@ -263,7 +268,7 @@ class _SearchBarState extends State<SearchBar> {
       }
     } catch (e, st) {
       debugPrint('Failed to launch $description search ($url): $e\n$st');
-      if (mounted) {
+      if (context.mounted) {
         _showSnackMessage(
           'Failed to open $description search: $e',
           backgroundColor: Colors.redAccent,
@@ -272,124 +277,10 @@ class _SearchBarState extends State<SearchBar> {
     }
   }
 
-  String _formatResultValue(dynamic value) {
-    if (value is num) {
-      if (value is double) {
-        if (value.isNaN || value.isInfinite) return value.toString();
-        if ((value - value.round()).abs() < 1e-10) {
-          return value.round().toString();
-        }
-        final formatted = value.toStringAsPrecision(10);
-        return formatted.replaceFirst(RegExp(r'\.?0+$'), '');
-      }
-      return value.toString();
-    }
-    return value == null ? '' : value.toString();
-  }
-
   void _showSnackMessage(String message, {Color? backgroundColor}) {
-    if (!mounted) return;
+    if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(message), backgroundColor: backgroundColor),
-    );
-  }
-
-  void _resetSearchField() {
-    if (!mounted) return;
-    _searchController.clear();
-    widget.onFilterApps('');
-    context.read<SearchCubit>().clearQuery();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return BlocListener<SearchCubit, SearchState>(
-      listener: (context, state) {
-        // Update search field when query changes externally
-        if (state.query != _searchController.text) {
-          _searchController.text = state.query;
-        }
-      },
-      child: Row(
-        children: [
-          Expanded(
-            child: Container(
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(14),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.4),
-                    blurRadius: 18,
-                    spreadRadius: -10,
-                    offset: const Offset(0, 14),
-                  ),
-                  BoxShadow(
-                    color: Colors.white.withOpacity(0.08),
-                    blurRadius: 10,
-                    spreadRadius: -8,
-                    offset: const Offset(-6, -6),
-                  ),
-                ],
-              ),
-              child: TextField(
-                controller: _searchController,
-                onChanged: (value) {
-                  widget.onFilterApps(value);
-                  context.read<SearchCubit>().updateQuery(value);
-                },
-                onSubmitted: _handleSearchSubmit,
-                textInputAction: TextInputAction.search,
-                decoration: const InputDecoration(
-                  hintText: 'Search applications...',
-                  prefixIcon: Icon(Icons.search),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.all(Radius.circular(14)),
-                  ),
-                  filled: true,
-                  fillColor: Colors.transparent,
-                ),
-                style: const TextStyle(color: Colors.white),
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          MouseRegion(
-            cursor: SystemMouseCursors.click,
-            child: Container(
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(14),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.4),
-                    blurRadius: 18,
-                    spreadRadius: -10,
-                    offset: const Offset(0, 14),
-                  ),
-                  BoxShadow(
-                    color: Colors.white.withOpacity(0.08),
-                    blurRadius: 8,
-                    spreadRadius: -8,
-                    offset: const Offset(-4, -4),
-                  ),
-                ],
-              ),
-              child: IconButton(
-                onPressed: widget.onSettingsPressed,
-                icon: const Icon(Icons.settings),
-                iconSize: 26,
-                color: Colors.white,
-                tooltip: 'Settings',
-                style: IconButton.styleFrom(
-                  backgroundColor: Colors.transparent,
-                  padding: const EdgeInsets.all(6),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
     );
   }
 }
