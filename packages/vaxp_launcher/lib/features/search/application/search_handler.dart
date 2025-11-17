@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:math_expressions/math_expressions.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:vaxp_launcher/features/search/application/ai.dart';
 import '../domain/models/search_result.dart';
 import '../presentation/widgets/search_dialogs.dart';
 import '../application/search_cubit.dart';
@@ -31,6 +32,31 @@ class SearchHandler {
 
   bool _handleSpecialSearch(String query) {
     final lower = query.toLowerCase();
+    if (lower.startsWith('ai:')) {
+      final term = query.substring('ai:'.length).trim();
+      if (term.isEmpty) {
+        _showSnackMessage('Enter a prompt after "ai:".');
+      } else {
+        if (context.mounted) {
+          // Show the AI UI as a centered pop-up dialog instead of navigating away
+          showDialog(
+            context: context,
+            barrierDismissible: true,
+            builder: (dialogContext) => Dialog(
+              insetPadding: const EdgeInsets.all(24),
+              backgroundColor: Colors.transparent,
+              child: SizedBox(
+                width: 880,
+                height: 620,
+                child: AdmiralAiScreen(initialQuery: 'ai: $term'),
+              ),
+            ),
+          );
+        }
+        onResetSearch();
+      }
+      return true;
+    }
     if (lower.startsWith('vater:')) {
       final command = query.substring('vater:'.length).trim();
       if (command.isEmpty) {

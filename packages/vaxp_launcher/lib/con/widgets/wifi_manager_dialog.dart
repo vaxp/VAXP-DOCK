@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:dbus/dbus.dart';
+// ignore: depend_on_referenced_packages
 import 'package:uuid/uuid.dart';
 
 class WiFiNetwork {

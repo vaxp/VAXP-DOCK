@@ -23,6 +23,7 @@ dependencies:
   process_run: ^1.2.4
   audioplayers: ^6.5.1
   math_expressions: ^2.5.0
+  flutter_markdown: ^0.7.7+1
 
 dev_dependencies:
   flutter_test:
