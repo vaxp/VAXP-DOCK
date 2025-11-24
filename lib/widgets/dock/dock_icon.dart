@@ -16,14 +16,17 @@ class DockIcon extends StatefulWidget {
     this.tooltip,
     required this.onTap,
     this.name,
-  }) : assert(icon != null || iconData != null || customChild != null, 
-             'Either icon, iconData, or customChild must be provided');
+  }) : assert(
+         icon != null || iconData != null || customChild != null,
+         'Either icon, iconData, or customChild must be provided',
+       );
 
   @override
   State<DockIcon> createState() => _DockIconState();
 }
 
-class _DockIconState extends State<DockIcon> with SingleTickerProviderStateMixin {
+class _DockIconState extends State<DockIcon>
+    with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _scaleAnimation;
 
@@ -34,9 +37,10 @@ class _DockIconState extends State<DockIcon> with SingleTickerProviderStateMixin
       duration: const Duration(milliseconds: 150),
       vsync: this,
     );
-    _scaleAnimation = Tween<double>(begin: 1.0, end: 1.25).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeOut),
-    );
+    _scaleAnimation = Tween<double>(
+      begin: 1.0,
+      end: 1.25,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
   }
 
   @override
@@ -54,6 +58,7 @@ class _DockIconState extends State<DockIcon> with SingleTickerProviderStateMixin
         onTap: widget.onTap,
         child: Tooltip(
           message: widget.tooltip ?? widget.name ?? '',
+          preferBelow: false, // يظهر في الأعلى بدلاً من الأسفل
           child: AnimatedBuilder(
             animation: _scaleAnimation,
             builder: (context, child) {
@@ -67,7 +72,9 @@ class _DockIconState extends State<DockIcon> with SingleTickerProviderStateMixin
                       height: 40,
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(4),
-                        color: widget.iconData != null ? null : Colors.transparent,
+                        color: widget.iconData != null
+                            ? null
+                            : Colors.transparent,
                       ),
                       child: widget.customChild != null
                           ? ClipRRect(
@@ -75,22 +82,21 @@ class _DockIconState extends State<DockIcon> with SingleTickerProviderStateMixin
                               child: widget.customChild!,
                             )
                           : widget.iconData != null
-                              ? ClipRRect(
-                                  borderRadius: BorderRadius.circular(4),
-                                  child: Image(
-                                    image: widget.iconData!,
-                                    width: 40,
-                                    height: 40,
-                                    fit: BoxFit.cover,
-                                  ),
-                                )
-                              : Icon(
-                                  widget.icon ?? Icons.apps,
-                                  size: 40,
-                                  color: Colors.white.withOpacity(0.9),
-                                ),
+                          ? ClipRRect(
+                              borderRadius: BorderRadius.circular(4),
+                              child: Image(
+                                image: widget.iconData!,
+                                width: 40,
+                                height: 40,
+                                fit: BoxFit.cover,
+                              ),
+                            )
+                          : Icon(
+                              widget.icon ?? Icons.apps,
+                              size: 40,
+                              color: Colors.white.withOpacity(0.9),
+                            ),
                     ),
-
                   ],
                 ),
               );
