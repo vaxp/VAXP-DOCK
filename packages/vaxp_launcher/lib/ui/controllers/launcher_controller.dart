@@ -5,6 +5,7 @@ import 'package:dbus/dbus.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:vaxp_core/models/desktop_entry.dart';
 import 'package:vaxp_core/services/dock_service.dart';
+import '../../core/enums/view_mode.dart';
 import '../../features/search/application/search_handler.dart';
 import '../../services/app_watcher_service.dart';
 import '../../services/gpu_service.dart';
@@ -48,6 +49,7 @@ class LauncherController extends ChangeNotifier {
   double opacity = 0.7;
   String? backgroundImagePath;
   String? iconThemePath;
+  ViewMode viewMode = ViewMode.grid;
 
   Future<List<DesktopEntry>>? _allAppsFuture;
 
@@ -391,6 +393,7 @@ class LauncherController extends ChangeNotifier {
     opacity = s.opacity;
     backgroundImagePath = s.backgroundImagePath;
     iconThemePath = s.iconThemePath;
+    viewMode = s.viewMode;
     notifyListeners();
   }
 
@@ -412,11 +415,29 @@ class LauncherController extends ChangeNotifier {
         opacity: opacity,
         backgroundImagePath: backgroundImagePath,
         iconThemePath: iconThemePath,
+        viewMode: viewMode,
       ),
     );
 
     // Reload theme if changed
     _iconTheme.loadTheme(iconThemePath).then((_) => refreshApps());
+  }
+
+  /// Toggle between grid and paged view modes
+  void toggleViewMode() {
+    viewMode = viewMode == ViewMode.grid ? ViewMode.paged : ViewMode.grid;
+    notifyListeners();
+
+    // Save the new view mode preference
+    _settings.save(
+      LauncherSettings(
+        backgroundColor: backgroundColor,
+        opacity: opacity,
+        backgroundImagePath: backgroundImagePath,
+        iconThemePath: iconThemePath,
+        viewMode: viewMode,
+      ),
+    );
   }
 
   // --- Workspaces ---

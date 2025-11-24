@@ -87,6 +87,8 @@ class _LauncherHomeState extends State<LauncherHome> {
                 onChanged: _controller.filterApps,
                 onSubmitted: _controller.handleSearchSubmit,
                 onSettingsPressed: _showSettingsDialog,
+                viewMode: _controller.viewMode,
+                onViewModeToggle: _controller.toggleViewMode,
               ),
 
               // Workspace cards strip
@@ -129,6 +131,7 @@ class _LauncherHomeState extends State<LauncherHome> {
                   onCreateShortcut: _controller.createDesktopShortcut,
                   onLaunchWithExternalGPU: (entry) =>
                       _controller.launchEntry(entry, useExternalGPU: true),
+                  viewMode: _controller.viewMode,
                 ),
               ),
             ],

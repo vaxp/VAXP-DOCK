@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/enums/view_mode.dart';
 
 class LauncherSearchBar extends StatelessWidget {
   const LauncherSearchBar({
@@ -7,12 +8,16 @@ class LauncherSearchBar extends StatelessWidget {
     required this.onChanged,
     required this.onSubmitted,
     required this.onSettingsPressed,
+    required this.viewMode,
+    required this.onViewModeToggle,
   });
 
   final TextEditingController controller;
   final Function(String) onChanged;
   final Function(String) onSubmitted;
   final VoidCallback onSettingsPressed;
+  final ViewMode viewMode;
+  final VoidCallback onViewModeToggle;
 
   @override
   Widget build(BuildContext context) {
@@ -59,6 +64,48 @@ class LauncherSearchBar extends StatelessWidget {
                 fillColor: Colors.white.withOpacity(0.04),
               ),
               style: const TextStyle(color: Colors.white),
+            ),
+          ),
+          const SizedBox(width: 12),
+          // View mode toggle button
+          MouseRegion(
+            cursor: SystemMouseCursors.click,
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(14),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.4),
+                    blurRadius: 18,
+                    spreadRadius: -10,
+                    offset: const Offset(0, 14),
+                  ),
+                  BoxShadow(
+                    color: Colors.white.withOpacity(0.08),
+                    blurRadius: 8,
+                    spreadRadius: -8,
+                    offset: const Offset(-4, -4),
+                  ),
+                ],
+              ),
+              child: IconButton(
+                onPressed: onViewModeToggle,
+                icon: Icon(
+                  viewMode == ViewMode.grid
+                      ? Icons.view_carousel
+                      : Icons.view_module,
+                ),
+                iconSize: 26,
+                color: Colors.white,
+                tooltip: viewMode == ViewMode.grid
+                    ? 'Switch to Paged View'
+                    : 'Switch to Grid View',
+                style: IconButton.styleFrom(
+                  backgroundColor: Colors.transparent,
+                  padding: const EdgeInsets.all(6),
+                ),
+              ),
             ),
           ),
           const SizedBox(width: 12),

@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../core/enums/view_mode.dart';
 
 class SettingsService {
   static const _colorKey = 'launcher_bg_color';
   static const _opacityKey = 'launcher_opacity';
   static const _imageKey = 'launcher_bg_image';
   static const _iconThemeKey = 'launcher_icon_theme';
+  static const _viewModeKey = 'launcher_view_mode';
 
   Future<LauncherSettings> load() async {
     final prefs = await SharedPreferences.getInstance();
@@ -13,11 +15,15 @@ class SettingsService {
     final doubleOpacity = prefs.getDouble(_opacityKey);
     final imagePath = prefs.getString(_imageKey);
     final iconThemePath = prefs.getString(_iconThemeKey);
+    final viewModeString = prefs.getString(_viewModeKey);
     return LauncherSettings(
       backgroundColor: intColor != null ? Color(intColor) : Colors.black,
       opacity: (doubleOpacity ?? 0.7).clamp(0.0, 1.0),
       backgroundImagePath: imagePath,
       iconThemePath: iconThemePath,
+      viewMode: viewModeString != null
+          ? ViewModeExtension.fromString(viewModeString)
+          : ViewMode.grid,
     );
   }
 
@@ -35,6 +41,7 @@ class SettingsService {
     } else {
       await prefs.setString(_iconThemeKey, s.iconThemePath!);
     }
+    await prefs.setString(_viewModeKey, s.viewMode.toStorageString());
   }
 }
 
@@ -43,13 +50,13 @@ class LauncherSettings {
   final double opacity;
   final String? backgroundImagePath;
   final String? iconThemePath;
+  final ViewMode viewMode;
 
   const LauncherSettings({
     required this.backgroundColor,
     required this.opacity,
     this.backgroundImagePath,
     this.iconThemePath,
+    this.viewMode = ViewMode.grid,
   });
 }
-
-

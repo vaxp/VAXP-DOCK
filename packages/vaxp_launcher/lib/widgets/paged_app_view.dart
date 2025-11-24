@@ -2,11 +2,10 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:vaxp_core/models/desktop_entry.dart';
-import '../core/enums/view_mode.dart';
-import 'paged_app_view.dart';
 
-class AppGrid extends StatefulWidget {
-  const AppGrid({
+/// Widget for displaying apps in a paged view with page indicators
+class PagedAppView extends StatefulWidget {
+  const PagedAppView({
     super.key,
     required this.apps,
     required this.iconThemeDir,
@@ -16,7 +15,6 @@ class AppGrid extends StatefulWidget {
     required this.onInstall,
     required this.onCreateShortcut,
     required this.onLaunchWithExternalGPU,
-    this.viewMode = ViewMode.grid,
   });
 
   final List<DesktopEntry> apps;
@@ -27,125 +25,198 @@ class AppGrid extends StatefulWidget {
   final Function(DesktopEntry) onInstall;
   final Function(DesktopEntry) onCreateShortcut;
   final Function(DesktopEntry) onLaunchWithExternalGPU;
-  final ViewMode viewMode;
 
   @override
-  State<AppGrid> createState() => _AppGridState();
+  State<PagedAppView> createState() => _PagedAppViewState();
 }
 
-class _AppGridState extends State<AppGrid> with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  final ScrollController _scrollController = ScrollController();
+class _PagedAppViewState extends State<PagedAppView>
+    with SingleTickerProviderStateMixin {
+  late PageController _pageController;
+  late AnimationController _animationController;
+  int _currentPage = 0;
 
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(
+    _pageController = PageController();
+    _animationController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 800),
     )..forward();
   }
 
   @override
-  void didUpdateWidget(AppGrid oldWidget) {
+  void didUpdateWidget(PagedAppView oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.apps.length != oldWidget.apps.length) {
-      _controller.reset();
-      _controller.forward();
+      _animationController.reset();
+      _animationController.forward();
     }
   }
 
   @override
   void dispose() {
-    _controller.dispose();
-    _scrollController.dispose();
+    _pageController.dispose();
+    _animationController.dispose();
     super.dispose();
+  }
+
+  /// Calculate number of apps per page based on screen size
+  int _getAppsPerPage(BuildContext context) {
+    final size = MediaQuery.of(context).size;
+    // Calculate grid dimensions
+    const itemWidth = 120.0;
+    const itemHeight = 140.0;
+    const spacing = 16.0;
+    const padding = 48.0;
+
+    final availableWidth = size.width - padding;
+    final availableHeight =
+        size.height - 300; // Reserve space for header and indicators
+
+    final columns = (availableWidth / (itemWidth + spacing)).floor();
+    final rows = (availableHeight / (itemHeight + spacing)).floor();
+
+    return (columns * rows).clamp(1, 100);
+  }
+
+  /// Split apps into pages
+  List<List<DesktopEntry>> _getPages(BuildContext context) {
+    final appsPerPage = _getAppsPerPage(context);
+    final pages = <List<DesktopEntry>>[];
+
+    for (var i = 0; i < widget.apps.length; i += appsPerPage) {
+      final end = (i + appsPerPage).clamp(0, widget.apps.length);
+      pages.add(widget.apps.sublist(i, end));
+    }
+
+    return pages.isEmpty ? [[]] : pages;
   }
 
   @override
   Widget build(BuildContext context) {
-    // Use paged view if viewMode is paged
-    if (widget.viewMode == ViewMode.paged) {
-      return PagedAppView(
-        apps: widget.apps,
-        iconThemeDir: widget.iconThemeDir,
-        runningAppNames: widget.runningAppNames,
-        onLaunch: widget.onLaunch,
-        onPin: widget.onPin,
-        onInstall: widget.onInstall,
-        onCreateShortcut: widget.onCreateShortcut,
-        onLaunchWithExternalGPU: widget.onLaunchWithExternalGPU,
-      );
-    }
+    final pages = _getPages(context);
 
-    // Default grid view
-    return AnimatedBuilder(
-      animation: _controller,
-      builder: (context, child) {
-        return GridView.builder(
-          controller: _scrollController,
-          padding: const EdgeInsets.all(24),
-          gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-            maxCrossAxisExtent: 120,
-            childAspectRatio: 0.85,
-            crossAxisSpacing: 16,
-            mainAxisSpacing: 16,
+    return Column(
+      children: [
+        // PageView with apps
+        Expanded(
+          child: PageView.builder(
+            controller: _pageController,
+            onPageChanged: (index) {
+              setState(() {
+                _currentPage = index;
+              });
+            },
+            itemCount: pages.length,
+            itemBuilder: (context, pageIndex) {
+              return AnimatedBuilder(
+                animation: _animationController,
+                builder: (context, child) {
+                  return GridView.builder(
+                    padding: const EdgeInsets.all(24),
+                    gridDelegate:
+                        const SliverGridDelegateWithMaxCrossAxisExtent(
+                          maxCrossAxisExtent: 120,
+                          childAspectRatio: 0.85,
+                          crossAxisSpacing: 16,
+                          mainAxisSpacing: 16,
+                        ),
+                    itemCount: pages[pageIndex].length,
+                    itemBuilder: (context, index) {
+                      final app = pages[pageIndex][index];
+
+                      // Staggered animation calculation
+                      final double animationStart = (index * 0.02).clamp(
+                        0.0,
+                        0.8,
+                      );
+                      final double animationEnd = (animationStart + 0.4).clamp(
+                        0.0,
+                        1.0,
+                      );
+
+                      final Animation<double> opacity =
+                          Tween<double>(begin: 0.0, end: 1.0).animate(
+                            CurvedAnimation(
+                              parent: _animationController,
+                              curve: Interval(
+                                animationStart,
+                                animationEnd,
+                                curve: Curves.easeOut,
+                              ),
+                            ),
+                          );
+
+                      final Animation<double> scale =
+                          Tween<double>(begin: 0.8, end: 1.0).animate(
+                            CurvedAnimation(
+                              parent: _animationController,
+                              curve: Interval(
+                                animationStart,
+                                animationEnd,
+                                curve: Curves.easeOutBack,
+                              ),
+                            ),
+                          );
+
+                      return FadeTransition(
+                        opacity: opacity,
+                        child: ScaleTransition(
+                          scale: scale,
+                          child: _AppGridItem(
+                            app: app,
+                            isRunning: widget.runningAppNames.contains(
+                              app.name,
+                            ),
+                            onLaunch: () => widget.onLaunch(app),
+                            onPin: () => widget.onPin(app),
+                            onInstall: () => widget.onInstall(app),
+                            onCreateShortcut: () =>
+                                widget.onCreateShortcut(app),
+                            onLaunchWithExternalGPU: () =>
+                                widget.onLaunchWithExternalGPU(app),
+                          ),
+                        ),
+                      );
+                    },
+                  );
+                },
+              );
+            },
           ),
-          itemCount: widget.apps.length,
-          itemBuilder: (context, index) {
-            final app = widget.apps[index];
+        ),
 
-            // Staggered animation calculation
-            final double animationStart = (index * 0.02).clamp(0.0, 0.8);
-            final double animationEnd = (animationStart + 0.4).clamp(0.0, 1.0);
-
-            final Animation<double> opacity =
-                Tween<double>(begin: 0.0, end: 1.0).animate(
-                  CurvedAnimation(
-                    parent: _controller,
-                    curve: Interval(
-                      animationStart,
-                      animationEnd,
-                      curve: Curves.easeOut,
-                    ),
+        // Page indicators
+        if (pages.length > 1)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 24.0),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: List.generate(
+                pages.length,
+                (index) => AnimatedContainer(
+                  duration: const Duration(milliseconds: 300),
+                  margin: const EdgeInsets.symmetric(horizontal: 4),
+                  width: _currentPage == index ? 24 : 8,
+                  height: 8,
+                  decoration: BoxDecoration(
+                    color: _currentPage == index
+                        ? Colors.white
+                        : Colors.white.withOpacity(0.3),
+                    borderRadius: BorderRadius.circular(4),
                   ),
-                );
-
-            final Animation<double> scale = Tween<double>(begin: 0.8, end: 1.0)
-                .animate(
-                  CurvedAnimation(
-                    parent: _controller,
-                    curve: Interval(
-                      animationStart,
-                      animationEnd,
-                      curve: Curves.easeOutBack,
-                    ),
-                  ),
-                );
-
-            return FadeTransition(
-              opacity: opacity,
-              child: ScaleTransition(
-                scale: scale,
-                child: _AppGridItem(
-                  app: app,
-                  isRunning: widget.runningAppNames.contains(app.name),
-                  onLaunch: () => widget.onLaunch(app),
-                  onPin: () => widget.onPin(app),
-                  onInstall: () => widget.onInstall(app),
-                  onCreateShortcut: () => widget.onCreateShortcut(app),
-                  onLaunchWithExternalGPU: () =>
-                      widget.onLaunchWithExternalGPU(app),
                 ),
               ),
-            );
-          },
-        );
-      },
+            ),
+          ),
+      ],
     );
   }
 }
 
+/// Individual app item widget (reused from AppGrid)
 class _AppGridItem extends StatefulWidget {
   const _AppGridItem({
     required this.app,
