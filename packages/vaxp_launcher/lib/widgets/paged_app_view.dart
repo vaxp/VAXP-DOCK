@@ -165,13 +165,13 @@ class _PagedAppViewState extends State<PagedAppView>
                         builder: (context, child) {
                           return GridView.builder(
                             padding: const EdgeInsets.symmetric(
-                              horizontal: 200,
+                              horizontal: 350,
                               vertical: 44,
                             ),
                             gridDelegate:
                                 const SliverGridDelegateWithFixedCrossAxisCount(
                                   crossAxisCount: 6, // Fixed 6 columns
-                                  childAspectRatio: 1.4,
+                                  childAspectRatio: 1,
                                   crossAxisSpacing: 1,
                                   mainAxisSpacing: 1,
                                 ),
@@ -470,8 +470,8 @@ class _AppGridItemState extends State<_AppGridItem> {
                 alignment: Alignment.center,
                 children: [
                   Container(
-                    width: 64,
-                    height: 64,
+                    width: 96,
+                    height: 96,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       boxShadow: _isHovered
@@ -545,24 +545,24 @@ class _AppGridItemState extends State<_AppGridItem> {
       if (widget.app.iconPath!.endsWith('.svg')) {
         return SvgPicture.file(
           File(widget.app.iconPath!),
-          width: 64,
-          height: 64,
+          width: 96,
+          height: 96,
           placeholderBuilder: (_) =>
-              const Icon(Icons.apps, color: Colors.white54, size: 48),
+              const Icon(Icons.apps, color: Colors.white54, size: 72),
         );
       } else {
         return Image.file(
           File(widget.app.iconPath!),
-          width: 64,
-          height: 64,
-          cacheWidth: 64,
-          cacheHeight: 64,
+          width: 96,
+          height: 96,
+          cacheWidth: 96,
+          cacheHeight: 96,
           gaplessPlayback: true,
           errorBuilder: (_, __, ___) =>
-              const Icon(Icons.apps, color: Colors.white54, size: 48),
+              const Icon(Icons.apps, color: Colors.white54, size: 72),
         );
       }
     }
-    return const Icon(Icons.apps, color: Colors.white54, size: 48);
+    return const Icon(Icons.apps, color: Colors.white54, size: 72);
   }
 }
