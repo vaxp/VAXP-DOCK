@@ -1,4 +1,3 @@
-import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 class VenomDockItem extends StatefulWidget {
@@ -65,16 +64,14 @@ class _VenomDockItemState extends State<VenomDockItem>
           children: [
             // طبقة الحلقة النيون الدوارة (تظهر فقط عند التركيز)
             if (widget.isFocused)
-              RotationTransition(
-                turns: _controller,
-                // 🔥 التحسين: RepaintBoundary يعزل الرسم ويحفظه كطبقة في الـ GPU
-                // استخدام const هنا يمنع إعادة بناء الودجت غير الضرورية
-                child: const RepaintBoundary(
-                  child: CustomPaint(
-                    size: Size(45, 45),
-                    painter: _NeonRingPainter(),
-                  ),
-                ),
+              AnimatedBuilder(
+                animation: _controller,
+                builder: (context, child) {
+                  return CustomPaint(
+                    size: const Size(45, 45),
+                    painter: _NeonRingPainter(rotation: _controller.value),
+                  );
+                },
               ),
             // الأيقونة في المنتصف
             widget.child,
@@ -86,13 +83,24 @@ class _VenomDockItemState extends State<VenomDockItem>
 }
 
 class _NeonRingPainter extends CustomPainter {
-  // جعل الكونستركتور const لتحسين الأداء
-  const _NeonRingPainter();
+  final double rotation; // قيمة الدوران من 0.0 إلى 1.0
+
+  const _NeonRingPainter({this.rotation = 0.0});
 
   @override
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
-    final radius = (size.width / 2) - 3; // نصف القطر
+
+    // إنشاء مربع دائري (Squircle) بدلاً من دائرة
+    final rect = Rect.fromCenter(
+      center: center,
+      width: size.width - 6,
+      height: size.height - 6,
+    );
+    final rrect = RRect.fromRectAndRadius(
+      rect,
+      const Radius.circular(10), // زوايا دائرية ناعمة
+    );
 
     // إعداد فرشاة النيون
     final Paint paint = Paint()
@@ -103,22 +111,28 @@ class _NeonRingPainter extends CustomPainter {
       // تأثير التوهج (Neon Glow)
       ..maskFilter = const MaskFilter.blur(BlurStyle.solid, 4.0);
 
-    // التدرج اللوني (Venom Colors)
-    final Rect rect = Rect.fromCircle(center: center, radius: radius);
-    paint.shader = const SweepGradient(
-      colors: [
+    // التدرج اللوني مع الدوران (فقط اللون يدور، الشكل ثابت!)
+    final Rect shaderRect = Rect.fromCircle(
+      center: center,
+      radius: size.width / 2,
+    );
+    paint.shader = SweepGradient(
+      colors: const [
         Colors.transparent,
         Colors.cyanAccent,
         Colors.purpleAccent,
         Colors.cyanAccent,
       ],
-      stops: [0.0, 0.5, 0.75, 1.0],
-    ).createShader(rect);
+      stops: const [0.0, 0.5, 0.75, 1.0],
+      transform: GradientRotation(rotation * 2 * 3.14159), // دوران التدرج فقط!
+    ).createShader(shaderRect);
 
-    // رسم الحلقة
-    canvas.drawArc(rect, 0, math.pi * 2, false, paint);
+    // رسم المربع الدائري (ثابت)
+    canvas.drawRRect(rrect, paint);
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  bool shouldRepaint(_NeonRingPainter oldDelegate) {
+    return oldDelegate.rotation != rotation;
+  }
 }
