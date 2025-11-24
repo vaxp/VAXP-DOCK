@@ -389,7 +389,20 @@ class _DockHomeState extends State<DockHome> {
     final cleaned = cmd.replaceAll(RegExp(r'%[a-zA-Z]'), '').trim();
     if (cleaned.isEmpty) return;
     try {
-      await Process.start('/bin/sh', ['-c', cleaned]);
+      final process = await Process.start('/bin/sh', ['-c', cleaned]);
+
+      // Register the app immediately so it shows as running (neon effect)
+      if (mounted) {
+        setState(() {
+          _runningApps[process.pid] = RunningApp(
+            name: entry.name,
+            exec: entry.exec ?? '',
+            iconPath: entry.iconPath,
+            isSvgIcon: entry.isSvgIcon,
+            pid: process.pid,
+          );
+        });
+      }
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
