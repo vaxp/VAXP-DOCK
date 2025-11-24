@@ -180,8 +180,22 @@ class _DockPanelState extends State<DockPanel> {
                       ],
                     );
                   },
-                  child: DockIcon(
-                    icon: Icons.apps,
+                //   child: Image.asset(
+                //     'assets/logo.png',
+                //     width: 40,
+                //     height: 40,
+                //     fit: BoxFit.contain,
+                //   ),
+                // ),
+
+                child: DockIcon(
+                  customChild:  Image.asset(
+                    'assets/logo.png',
+                    width: 40,
+                    height: 40,
+                    fit: BoxFit.contain,
+                  ),
+                    // icon: Icons.apps,
                     tooltip: 'Show all apps',
                     onTap: widget.onShowLauncher,
                   ),

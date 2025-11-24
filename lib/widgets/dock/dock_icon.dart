@@ -90,16 +90,7 @@ class _DockIconState extends State<DockIcon> with SingleTickerProviderStateMixin
                                   color: Colors.white.withOpacity(0.9),
                                 ),
                     ),
-                    // Running indicator dot
-                    // Container(
-                    //   margin: const EdgeInsets.only(top: 5),
-                    //   width: 5,
-                    //   height: 5,
-                    //   decoration: BoxDecoration(
-                    //     color: Colors.white.withOpacity(0.8),
-                    //     shape: BoxShape.circle,
-                    //   ),
-                    // ),
+
                   ],
                 ),
               );
