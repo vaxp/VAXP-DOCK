@@ -170,7 +170,7 @@ class _DockPanelState extends State<DockPanel> {
               padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 2),
               decoration: BoxDecoration(
                 color: const Color.fromARGB(
-                  151,
+                  100,
                   0,
                   0,
                   0,
