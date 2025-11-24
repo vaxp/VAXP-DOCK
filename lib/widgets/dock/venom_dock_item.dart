@@ -23,26 +23,27 @@ class _VenomDockItemState extends State<VenomDockItem>
   @override
   void initState() {
     super.initState();
-    // تحكم في سرعة الدوران (ثانيتين للدورة الكاملة)
+    // تحكم في سرعة الدوران: سريع للنشط (2 ثانية)، بطيء لغير النشط (6 ثواني)
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 2),
+      duration: widget.isFocused
+          ? const Duration(seconds: 2) // سريع للتطبيقات النشطة
+          : const Duration(seconds: 6), // بطيء للتطبيقات غير النشطة
     );
 
-    if (widget.isFocused) _controller.repeat();
+    _controller.repeat(); // دائماً يدور (نشط أو غير نشط)
   }
 
   @override
   void didUpdateWidget(VenomDockItem oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // التحكم الذكي: أوقف الدوران إذا فقد التركيز لتوفير الموارد
+    // تغيير سرعة الدوران عند تغيير حالة التركيز
     if (widget.isFocused != oldWidget.isFocused) {
-      if (widget.isFocused) {
-        _controller.repeat();
-      } else {
-        _controller.stop();
-        _controller.reset();
-      }
+      _controller.stop();
+      _controller.duration = widget.isFocused
+          ? const Duration(seconds: 2) // سريع للنشط
+          : const Duration(seconds: 6); // بطيء لغير النشط
+      _controller.repeat();
     }
   }
 
@@ -62,17 +63,19 @@ class _VenomDockItemState extends State<VenomDockItem>
         child: Stack(
           alignment: Alignment.center,
           children: [
-            // طبقة الحلقة النيون الدوارة (تظهر فقط عند التركيز)
-            if (widget.isFocused)
-              AnimatedBuilder(
-                animation: _controller,
-                builder: (context, child) {
-                  return CustomPaint(
-                    size: const Size(45, 45),
-                    painter: _NeonRingPainter(rotation: _controller.value),
-                  );
-                },
-              ),
+            // طبقة الحلقة النيون الدوارة (دائماً تظهر)
+            AnimatedBuilder(
+              animation: _controller,
+              builder: (context, child) {
+                return CustomPaint(
+                  size: const Size(45, 45),
+                  painter: _NeonRingPainter(
+                    rotation: _controller.value,
+                    isFocused: widget.isFocused,
+                  ),
+                );
+              },
+            ),
             // الأيقونة في المنتصف
             widget.child,
           ],
@@ -84,8 +87,9 @@ class _VenomDockItemState extends State<VenomDockItem>
 
 class _NeonRingPainter extends CustomPainter {
   final double rotation; // قيمة الدوران من 0.0 إلى 1.0
+  final bool isFocused; // هل التطبيق نشط؟
 
-  const _NeonRingPainter({this.rotation = 0.0});
+  const _NeonRingPainter({this.rotation = 0.0, this.isFocused = false});
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -106,26 +110,43 @@ class _NeonRingPainter extends CustomPainter {
     final Paint paint = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth =
-          3.0 // سماكة الحلقة
+          1.0 // سماكة الحلقة
       ..strokeCap = StrokeCap.round
       // تأثير التوهج (Neon Glow)
       ..maskFilter = const MaskFilter.blur(BlurStyle.solid, 4.0);
 
-    // التدرج اللوني مع الدوران (فقط اللون يدور، الشكل ثابت!)
+    // التدرج اللوني مع الدوران - ألوان مختلفة حسب الحالة
     final Rect shaderRect = Rect.fromCircle(
       center: center,
       radius: size.width / 2,
     );
-    paint.shader = SweepGradient(
-      colors: const [
-        Colors.transparent,
-        Colors.cyanAccent,
-        Colors.purpleAccent,
-        Colors.cyanAccent,
-      ],
-      stops: const [0.0, 0.5, 0.75, 1.0],
-      transform: GradientRotation(rotation * 2 * 3.14159), // دوران التدرج فقط!
-    ).createShader(shaderRect);
+
+    if (isFocused) {
+      // تطبيق نشط: سيان/بنفسجي
+      paint.shader = SweepGradient(
+        colors: const [
+          Colors.transparent,
+          Colors.cyanAccent,
+          Colors.purpleAccent,
+          Colors.cyanAccent,
+        ],
+        stops: const [0.0, 0.5, 0.75, 1.0],
+        transform: GradientRotation(rotation * 2 * 3.14159),
+      ).createShader(shaderRect);
+    } else {
+      // تطبيق غير نشط: أحمر متدرج
+      paint.shader = SweepGradient(
+        colors: const [
+          Colors.transparent,
+          Color(0xFFFF1744), // أحمر نيون
+          Color(0xFFFF5252), // أحمر فاتح
+          Color(0xFFFF1744), // أحمر نيون
+          Colors.transparent,
+        ],
+        stops: const [0.0, 0.3, 0.5, 0.7, 1.0],
+        transform: GradientRotation(rotation * 2 * 3.14159),
+      ).createShader(shaderRect);
+    }
 
     // رسم المربع الدائري (ثابت)
     canvas.drawRRect(rrect, paint);
@@ -133,6 +154,7 @@ class _NeonRingPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_NeonRingPainter oldDelegate) {
-    return oldDelegate.rotation != rotation;
+    return oldDelegate.rotation != rotation ||
+        oldDelegate.isFocused != isFocused;
   }
 }

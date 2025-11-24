@@ -87,19 +87,20 @@ class _DockPanelState extends State<DockPanel> {
       );
     }
 
-    // Wrap with VenomDockItem for neon effect on running apps
-    Widget finalWidget = iconWidget;
-    if (isRunning) {
-      finalWidget = VenomDockItem(
-        isFocused: true,
-        onTap: () {
-          if (pid != null && widget.onFocusApp != null) {
-            widget.onFocusApp!(pid);
-          }
-        },
-        child: iconWidget,
-      );
-    }
+    // Wrap all icons with VenomDockItem for neon effect
+    // Running apps: cyan/purple (fast), Non-running: red (slow)
+    Widget finalWidget = VenomDockItem(
+      isFocused:
+          isRunning, // true = نشط (سيان/بنفسجي سريع), false = غير نشط (أحمر بطيء)
+      onTap: () {
+        if (isRunning && pid != null && widget.onFocusApp != null) {
+          widget.onFocusApp!(pid);
+        } else {
+          widget.onLaunch(entry);
+        }
+      },
+      child: iconWidget,
+    );
 
     // Wrap with context menu and running indicator
     return GestureDetector(

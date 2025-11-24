@@ -26,7 +26,7 @@ class _AnimatedNeonBorderState extends State<AnimatedNeonBorder>
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 3),
+      duration: const Duration(seconds: 2),
     )..repeat();
   }
 
@@ -81,7 +81,7 @@ class _NeonBorderPainter extends CustomPainter {
           Colors.cyanAccent,
           Color.fromARGB(255, 0, 255, 170),
           Colors.cyanAccent,
-          Color.fromARGB(0, 0, 122, 106),
+          Color.fromARGB(0, 0, 0, 0),
         ],
         stops: const [0.0, 0.3, 0.5, 0.7, 1.0],
         transform: GradientRotation(rotation * 2 * 3.14159),
