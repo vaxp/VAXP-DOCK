@@ -344,6 +344,9 @@ class _AppGridItemState extends State<_AppGridItem> {
           File(widget.app.iconPath!),
           width: 64,
           height: 64,
+          cacheWidth: 64,
+          cacheHeight: 64,
+          gaplessPlayback: true,
           errorBuilder: (_, __, ___) =>
               const Icon(Icons.apps, color: Colors.white54, size: 48),
         );
