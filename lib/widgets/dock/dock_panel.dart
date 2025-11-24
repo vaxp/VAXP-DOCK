@@ -16,6 +16,10 @@ class DockPanel extends StatefulWidget {
   final List<RunningApp> runningApps;
   final Function(String) onUnpin;
   final Function(int pid)? onFocusApp;
+  final Function(int pid)? onCloseApp;
+  final Function(DesktopEntry)? onNewWindow;
+  final Function(String name, String exec, String? iconPath, bool isSvgIcon)?
+  onPin;
   final Function(int oldIndex, int newIndex)? onReorder;
 
   const DockPanel({
@@ -28,6 +32,9 @@ class DockPanel extends StatefulWidget {
     this.runningApps = const [],
     required this.onUnpin,
     this.onFocusApp,
+    this.onCloseApp,
+    this.onNewWindow,
+    this.onPin,
     this.onReorder,
   });
 
@@ -102,9 +109,19 @@ class _DockPanelState extends State<DockPanel> {
       child: iconWidget,
     );
 
+    // Check if app is pinned
+    final isPinned = widget.pinnedApps.any((app) => app.name == entry.name);
+
     // Wrap with context menu and running indicator
     return GestureDetector(
-      onSecondaryTapUp: (details) => _showDockIconMenu(context, details, entry),
+      onSecondaryTapUp: (details) => _showDockIconMenu(
+        context,
+        details,
+        entry,
+        isRunning: isRunning,
+        pid: pid,
+        isPinned: isPinned,
+      ),
       child: Stack(
         alignment: Alignment.bottomCenter,
         children: [
@@ -136,8 +153,11 @@ class _DockPanelState extends State<DockPanel> {
   void _showDockIconMenu(
     BuildContext context,
     TapUpDetails details,
-    DesktopEntry entry,
-  ) {
+    DesktopEntry entry, {
+    bool isRunning = false,
+    int? pid,
+    bool isPinned = false,
+  }) {
     // إنشاء overlay entry مخصص بأيقونات
     final overlay = Overlay.of(context);
     late OverlayEntry overlayEntry;
@@ -169,15 +189,32 @@ class _DockPanelState extends State<DockPanel> {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      // أيقونة إلغاء التثبيت
-                      _buildIconButton(
-                        icon: Icons.push_pin,
-                        tooltip: 'Unpin',
-                        onTap: () {
-                          overlayEntry.remove();
-                          widget.onUnpin(entry.name);
-                        },
-                      ),
+                      // أيقونة Pin/Unpin (حسب حالة التثبيت)
+                      if (isPinned)
+                        // Unpin button (للتطبيقات المثبتة)
+                        _buildIconButton(
+                          icon: Icons.push_pin,
+                          tooltip: 'Unpin',
+                          onTap: () {
+                            overlayEntry.remove();
+                            widget.onUnpin(entry.name);
+                          },
+                        )
+                      else
+                        // Pin button (للتطبيقات غير المثبتة)
+                        _buildIconButton(
+                          icon: Icons.push_pin_outlined,
+                          tooltip: 'Pin',
+                          onTap: () {
+                            overlayEntry.remove();
+                            widget.onPin?.call(
+                              entry.name,
+                              entry.exec ?? '',
+                              entry.iconPath,
+                              entry.isSvgIcon,
+                            );
+                          },
+                        ),
                       const SizedBox(width: 8),
                       // أيقونة نافذة جديدة
                       _buildIconButton(
@@ -185,18 +222,20 @@ class _DockPanelState extends State<DockPanel> {
                         tooltip: 'New Window',
                         onTap: () {
                           overlayEntry.remove();
-                          widget.onLaunch(entry);
+                          widget.onNewWindow?.call(entry);
                         },
                       ),
                       const SizedBox(width: 8),
-                      // أيقونة إغلاق
-                      _buildIconButton(
-                        icon: Icons.close,
-                        tooltip: 'Close',
-                        onTap: () {
-                          overlayEntry.remove();
-                        },
-                      ),
+                      // أيقونة إغلاق (فقط للتطبيقات النشطة)
+                      if (isRunning && pid != null)
+                        _buildIconButton(
+                          icon: Icons.close,
+                          tooltip: 'Close',
+                          onTap: () {
+                            overlayEntry.remove();
+                            widget.onCloseApp?.call(pid);
+                          },
+                        ),
                     ],
                   ),
                 ),

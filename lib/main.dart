@@ -10,21 +10,18 @@ import 'widgets/dock/dock_panel.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
+
   // Initialize D-Bus service
   final dockService = VaxpDockService();
   await dockService.listenAsServer();
-  
+
   runApp(DockApp(dockService: dockService));
 }
 
 class DockApp extends StatelessWidget {
   final VaxpDockService dockService;
 
-  const DockApp({
-    super.key,
-    required this.dockService,
-  });
+  const DockApp({super.key, required this.dockService});
 
   @override
   Widget build(BuildContext context) {
@@ -51,10 +48,7 @@ class DockApp extends StatelessWidget {
 class DockHome extends StatefulWidget {
   final VaxpDockService dockService;
 
-  const DockHome({
-    super.key,
-    required this.dockService,
-  });
+  const DockHome({super.key, required this.dockService});
 
   @override
   State<DockHome> createState() => _DockHomeState();
@@ -101,12 +95,16 @@ class _DockHomeState extends State<DockHome> {
     try {
       final prefs = await SharedPreferences.getInstance();
       final pinnedAppsJson = prefs.getStringList('pinnedApps') ?? [];
-      
-  setState(() {
-    _pinnedApps = pinnedAppsJson
-    .map((json) => DesktopEntry.fromJson(jsonDecode(json) as Map<String, dynamic>))
-    .toList();
-  });
+
+      setState(() {
+        _pinnedApps = pinnedAppsJson
+            .map(
+              (json) => DesktopEntry.fromJson(
+                jsonDecode(json) as Map<String, dynamic>,
+              ),
+            )
+            .toList();
+      });
     } catch (e) {
       debugPrint('Error loading pinned apps: $e');
     }
@@ -124,15 +122,22 @@ class _DockHomeState extends State<DockHome> {
     }
   }
 
-  void _handlePinRequest(String name, String exec, String? iconPath, bool isSvgIcon) {
+  void _handlePinRequest(
+    String name,
+    String exec,
+    String? iconPath,
+    bool isSvgIcon,
+  ) {
     setState(() {
       if (!_pinnedApps.any((app) => app.name == name)) {
-        _pinnedApps.add(DesktopEntry(
-          name: name,
-          exec: exec,
-          iconPath: iconPath,
-          isSvgIcon: isSvgIcon,
-        ));
+        _pinnedApps.add(
+          DesktopEntry(
+            name: name,
+            exec: exec,
+            iconPath: iconPath,
+            isSvgIcon: isSvgIcon,
+          ),
+        );
         _savePinnedApps(); // Save changes to persistent storage
       }
     });
@@ -145,7 +150,13 @@ class _DockHomeState extends State<DockHome> {
     });
   }
 
-  void _handleRegisterRunningApp(String name, String exec, String? iconPath, bool isSvgIcon, int pid) {
+  void _handleRegisterRunningApp(
+    String name,
+    String exec,
+    String? iconPath,
+    bool isSvgIcon,
+    int pid,
+  ) {
     setState(() {
       _runningApps[pid] = RunningApp(
         name: name,
@@ -202,7 +213,7 @@ class _DockHomeState extends State<DockHome> {
     // Get the app name for fallback window finding
     final runningApp = _runningApps[pid];
     final appName = runningApp?.name;
-    
+
     try {
       // Try wmctrl first (more reliable for window management)
       final wmctrlResult = await Process.run('which', ['wmctrl']);
@@ -212,7 +223,7 @@ class _DockHomeState extends State<DockHome> {
         if (findResult.exitCode == 0) {
           final lines = (findResult.stdout as String).split('\n');
           String? windowId;
-          
+
           // First try to find by PID
           for (final line in lines) {
             if (line.contains(' $pid ')) {
@@ -223,7 +234,7 @@ class _DockHomeState extends State<DockHome> {
               }
             }
           }
-          
+
           // If not found by PID and we have app name, try by name
           if (windowId == null && appName != null) {
             for (final line in lines) {
@@ -241,7 +252,7 @@ class _DockHomeState extends State<DockHome> {
               }
             }
           }
-          
+
           if (windowId != null) {
             // First restore the window (unminimize it)
             await Process.run('wmctrl', ['-i', '-R', windowId]);
@@ -258,23 +269,33 @@ class _DockHomeState extends State<DockHome> {
       final xdotoolResult = await Process.run('which', ['xdotool']);
       if (xdotoolResult.exitCode == 0) {
         String? windowId;
-        
+
         // Get window ID from PID
-        final searchResult = await Process.run('xdotool', ['search', '--pid', pid.toString()]);
+        final searchResult = await Process.run('xdotool', [
+          'search',
+          '--pid',
+          pid.toString(),
+        ]);
         if (searchResult.exitCode == 0) {
           final windowIds = (searchResult.stdout as String).trim().split('\n');
           if (windowIds.isNotEmpty && windowIds[0].isNotEmpty) {
             windowId = windowIds[0];
           }
         }
-        
+
         // If not found by PID and we have app name, try by name
         if (windowId == null && appName != null) {
           try {
             // Try to find window by class name (WM_CLASS)
-            final classResult = await Process.run('xdotool', ['search', '--class', appName.toLowerCase()]);
+            final classResult = await Process.run('xdotool', [
+              'search',
+              '--class',
+              appName.toLowerCase(),
+            ]);
             if (classResult.exitCode == 0) {
-              final windowIds = (classResult.stdout as String).trim().split('\n');
+              final windowIds = (classResult.stdout as String).trim().split(
+                '\n',
+              );
               if (windowIds.isNotEmpty && windowIds[0].isNotEmpty) {
                 windowId = windowIds[0];
               }
@@ -283,7 +304,7 @@ class _DockHomeState extends State<DockHome> {
             debugPrint('Could not find window by class name: $e');
           }
         }
-        
+
         if (windowId != null) {
           // First map (unminimize) the window
           await Process.run('xdotool', ['windowmap', windowId]);
@@ -298,6 +319,17 @@ class _DockHomeState extends State<DockHome> {
       }
     } catch (e) {
       debugPrint('Failed to focus app with PID $pid: $e');
+    }
+  }
+
+  /// Close a running application by its PID
+  Future<void> _closeApp(int pid) async {
+    try {
+      // استخدام kill -9 لإغلاق التطبيق بالقوة
+      await Process.run('kill', ['-9', pid.toString()]);
+      // The app will be automatically removed from _runningApps via _checkRunningProcesses
+    } catch (e) {
+      debugPrint('Failed to close app with PID $pid: $e');
     }
   }
 
@@ -374,10 +406,7 @@ class _DockHomeState extends State<DockHome> {
         fit: StackFit.expand,
         children: [
           if (_backgroundImagePath != null)
-            Image.file(
-              File(_backgroundImagePath!),
-              fit: BoxFit.cover,
-            ),
+            Image.file(File(_backgroundImagePath!), fit: BoxFit.cover),
           Align(
             alignment: Alignment.bottomCenter,
             child: DockPanel(
@@ -401,6 +430,9 @@ class _DockHomeState extends State<DockHome> {
               runningApps: _runningApps.values.toList(),
               onUnpin: (name) => _handleUnpinRequest(name),
               onFocusApp: _focusApp,
+              onCloseApp: _closeApp,
+              onNewWindow: _launchEntry,
+              onPin: _handlePinRequest,
               onReorder: (oldIndex, newIndex) {
                 setState(() {
                   final item = _pinnedApps.removeAt(oldIndex);
