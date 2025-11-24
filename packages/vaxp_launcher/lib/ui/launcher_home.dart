@@ -21,6 +21,8 @@ import '../services/gpu_service.dart';
 import '../services/package_service.dart';
 import '../services/shortcut_service.dart';
 import '../services/workspace_service.dart';
+import '../services/app_watcher_service.dart';
+import '../services/icon_theme_service.dart';
 import '../con/controlcenterpage.dart';
 import '../features/search/application/search_handler.dart';
 
@@ -334,6 +336,9 @@ class _LauncherHomeState extends State<LauncherHome> {
   final _pkgService = PackageService();
   final _shortcutService = ShortcutService();
   final _workspaceService = WorkspaceService();
+  final _appWatcher = AppWatcherService();
+  final _iconTheme = IconThemeService();
+  StreamSubscription? _appWatchSub;
 
   List<Workspace> _workspaces = [];
   int? _hoveredWorkspace;
@@ -347,8 +352,17 @@ class _LauncherHomeState extends State<LauncherHome> {
     _dockService = VaxpDockService();
     _connectToDockService();
     _setupDockSignalListeners();
-    _loadSettings();
+    _loadSettings().then((_) {
+      _iconTheme.loadTheme(_iconThemePath).then((_) {
+        _loadApps();
+      });
+    });
     _loadWorkspaces();
+
+    _appWatcher.startWatching();
+    _appWatchSub = _appWatcher.onAppsChanged.listen((_) {
+      _refreshApps();
+    });
   }
 
   @override
@@ -392,8 +406,15 @@ class _LauncherHomeState extends State<LauncherHome> {
       _backgroundColor = s.backgroundColor;
       _opacity = s.opacity;
       _backgroundImagePath = s.backgroundImagePath;
-      _iconThemePath = s.iconThemePath;
     });
+
+    if (mounted) {
+      setState(() {
+        _iconThemePath = s.iconThemePath;
+        // Reload theme if changed
+        _iconTheme.loadTheme(_iconThemePath).then((_) => _refreshApps());
+      });
+    }
   }
 
   Future<void> _saveSettings() async {
@@ -487,6 +508,15 @@ class _LauncherHomeState extends State<LauncherHome> {
       _allAppsFuture = DesktopEntry.loadAll();
     }
     final apps = await _allAppsFuture!;
+
+    // Pre-resolve icons for better performance
+    for (final app in apps) {
+      final resolvedIcon = _iconTheme.resolveIcon(app);
+      if (resolvedIcon != null) {
+        app.iconPath = resolvedIcon;
+      }
+    }
+
     if (!mounted) return;
     setState(() {
       _filteredApps = apps;
@@ -496,8 +526,18 @@ class _LauncherHomeState extends State<LauncherHome> {
 
   Future<void> _refreshApps() async {
     _allAppsFuture = DesktopEntry.loadAll();
-    setState(() => _isLoading = true);
+    // Don't show loading spinner for background updates
+    // setState(() => _isLoading = true);
     final apps = await _allAppsFuture!;
+
+    // Pre-resolve icons
+    for (final app in apps) {
+      final resolvedIcon = _iconTheme.resolveIcon(app);
+      if (resolvedIcon != null) {
+        app.iconPath = resolvedIcon;
+      }
+    }
+
     if (!mounted) return;
     final query = _searchController.text.trim();
     setState(() {
@@ -1219,6 +1259,8 @@ class _LauncherHomeState extends State<LauncherHome> {
     _minimizeSub?.cancel();
     _restoreSub?.cancel();
     _dbusClient.close();
+    _appWatchSub?.cancel();
+    _appWatcher.dispose();
     super.dispose();
   }
 
@@ -1331,27 +1373,27 @@ class _LauncherHomeState extends State<LauncherHome> {
                     child: SizedBox(
                       height: 200, // الارتفاع ثابت كما حددته
                       child: GlassmorphicContainer(
-        width: double.infinity,
-        height: 200,
-        borderRadius: 16,
-        linearGradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            const Color.fromARGB(0, 0, 0, 0),
-            const Color.fromARGB(0, 0, 0, 0),
-          ],
-        ),
-        border: 1.2,
-        blur: 26,
-        borderGradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            // borderColor.withOpacity(0.1),
-            // borderColor.withOpacity(0.05),
-          ],
-        ),
+                        width: double.infinity,
+                        height: 200,
+                        borderRadius: 16,
+                        linearGradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            const Color.fromARGB(0, 0, 0, 0),
+                            const Color.fromARGB(0, 0, 0, 0),
+                          ],
+                        ),
+                        border: 1.2,
+                        blur: 26,
+                        borderGradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            // borderColor.withOpacity(0.1),
+                            // borderColor.withOpacity(0.05),
+                          ],
+                        ),
                         child: Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 16.0),
                           child: _workspaces.isEmpty
@@ -1368,7 +1410,7 @@ class _LauncherHomeState extends State<LauncherHome> {
                                     final isHovered =
                                         _hoveredWorkspace == w.index;
                                     final isCurrent = w.isCurrent;
-                                            
+
                                     // --- 1. تحديد الألوان بناءً على الحالة ---
                                     final Color baseColor;
                                     if (isCurrent) {
@@ -1387,14 +1429,14 @@ class _LauncherHomeState extends State<LauncherHome> {
                                         0.08,
                                       );
                                     }
-                                            
+
                                     // --- 2. تحديد لون الحدود ---
                                     final Color borderColor = isCurrent
                                         ? Colors.white.withOpacity(
                                             0.5,
                                           ) // إطار أبيض للنشط
                                         : Colors.transparent;
-                                            
+
                                     return MouseRegion(
                                       cursor: SystemMouseCursors.click,
                                       onEnter: (_) => setState(

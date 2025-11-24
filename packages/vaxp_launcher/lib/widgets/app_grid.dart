@@ -629,7 +629,6 @@ class _ContextMenuTileState extends State<_ContextMenuTile> {
 class _AppGridState extends State<AppGrid> {
   static const int itemsPerPage = 24; // 6 columns × 4 rows
   int _currentPage = 0;
-  List<File> _themeFiles = [];
   late int _totalPages;
   final PageController _pageController = PageController();
   bool _isScrolling = false;
@@ -638,7 +637,6 @@ class _AppGridState extends State<AppGrid> {
   @override
   void initState() {
     super.initState();
-    _loadThemeFiles();
     _updateTotalPages();
   }
 
@@ -649,9 +647,6 @@ class _AppGridState extends State<AppGrid> {
   @override
   void didUpdateWidget(AppGrid oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.iconThemeDir != oldWidget.iconThemeDir) {
-      _loadThemeFiles();
-    }
     if (widget.apps.length != oldWidget.apps.length) {
       _updateTotalPages();
       // Ensure current page is valid
@@ -666,51 +661,6 @@ class _AppGridState extends State<AppGrid> {
   void dispose() {
     _pageController.dispose();
     super.dispose();
-  }
-
-  void _loadThemeFiles() {
-    _themeFiles = [];
-    final dirPath = widget.iconThemeDir;
-    if (dirPath == null || dirPath.isEmpty) return;
-    try {
-      final dir = Directory(dirPath);
-      if (dir.existsSync()) {
-        _themeFiles = dir.listSync(recursive: true).whereType<File>().toList();
-      }
-    } catch (_) {
-      _themeFiles = [];
-    }
-  }
-
-  String? _resolveIconForEntry(DesktopEntry entry) {
-    if (_themeFiles.isEmpty) return null;
-    try {
-      final Set<String> candidates = {};
-      if (entry.iconPath != null && entry.iconPath!.isNotEmpty) {
-        final raw = entry.iconPath!;
-        final fn = raw.split(Platform.pathSeparator).last;
-        final dot = fn.lastIndexOf('.');
-        final base = dot > 0 ? fn.substring(0, dot) : fn;
-        candidates.add(base.toLowerCase());
-      }
-      final nameBase = entry.name.toLowerCase();
-      candidates.add(nameBase);
-      candidates.add(nameBase.replaceAll(' ', '-'));
-      candidates.add(nameBase.replaceAll(' ', '_'));
-      candidates.add(nameBase.replaceAll(' ', ''));
-
-      for (final file in _themeFiles) {
-        final fn = file.path.split(Platform.pathSeparator).last;
-        final dot = fn.lastIndexOf('.');
-        final base = dot > 0 ? fn.substring(0, dot) : fn;
-        final lower = base.toLowerCase();
-        if (candidates.contains(lower) ||
-            candidates.any((c) => fn.toLowerCase().contains(c))) {
-          return file.path;
-        }
-      }
-    } catch (_) {}
-    return null;
   }
 
   Widget _buildPageIndicator() {
@@ -810,17 +760,16 @@ class _AppGridState extends State<AppGrid> {
                         itemCount: pageApps.length,
                         itemBuilder: (context, index) {
                           final entry = pageApps[index];
-                          final themed = _resolveIconForEntry(entry);
-                          final iconPath = themed ?? entry.iconPath;
-                          final isSvg =
-                              iconPath != null &&
-                              iconPath.toLowerCase().endsWith('.svg');
+                          // Removed _resolveIconForEntry and related logic
+                          // as per instruction to use entry.iconPath directly.
 
                           return AppIconTile(
                             entry: entry,
-                            iconPath: iconPath,
-                            isSvgIcon: isSvg,
-                            isRunning: widget.runningAppNames.contains(entry.name),
+                            iconPath: entry.iconPath,
+                            isSvgIcon: entry.isSvgIcon,
+                            isRunning: widget.runningAppNames.contains(
+                              entry.name,
+                            ),
                             onLaunch: () => widget.onLaunch(entry),
                             onPin: widget.onPin,
                             onUninstall: widget.onInstall,
