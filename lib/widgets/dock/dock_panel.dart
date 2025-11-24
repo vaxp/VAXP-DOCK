@@ -138,22 +138,98 @@ class _DockPanelState extends State<DockPanel> {
     TapUpDetails details,
     DesktopEntry entry,
   ) {
-    final RenderBox overlay =
-        Overlay.of(context).context.findRenderObject() as RenderBox;
-    final position = RelativeRect.fromRect(
-      Rect.fromPoints(details.globalPosition, details.globalPosition),
-      Offset.zero & overlay.size,
+    // إنشاء overlay entry مخصص بأيقونات
+    final overlay = Overlay.of(context);
+    late OverlayEntry overlayEntry;
+
+    overlayEntry = OverlayEntry(
+      builder: (context) => GestureDetector(
+        onTap: () => overlayEntry.remove(), // إغلاق عند الضغط في أي مكان
+        behavior: HitTestBehavior.translucent,
+        child: Stack(
+          children: [
+            Positioned(
+              left: details.globalPosition.dx - 70,
+              top: details.globalPosition.dy - 20, // فوق الأيقونة
+              child: Material(
+                color: Colors.transparent,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.8),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: Colors.cyanAccent.withOpacity(0.3),
+                      width: 1,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // أيقونة إلغاء التثبيت
+                      _buildIconButton(
+                        icon: Icons.push_pin,
+                        tooltip: 'Unpin',
+                        onTap: () {
+                          overlayEntry.remove();
+                          widget.onUnpin(entry.name);
+                        },
+                      ),
+                      const SizedBox(width: 8),
+                      // أيقونة نافذة جديدة
+                      _buildIconButton(
+                        icon: Icons.open_in_new,
+                        tooltip: 'New Window',
+                        onTap: () {
+                          overlayEntry.remove();
+                          widget.onLaunch(entry);
+                        },
+                      ),
+                      const SizedBox(width: 8),
+                      // أيقونة إغلاق
+                      _buildIconButton(
+                        icon: Icons.close,
+                        tooltip: 'Close',
+                        onTap: () {
+                          overlayEntry.remove();
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
 
-    showMenu(
-      context: context,
-      position: position,
-      items: [
-        PopupMenuItem(
-          child: const Text('Unpin from dock'),
-          onTap: () => widget.onUnpin(entry.name),
+    overlay.insert(overlayEntry);
+  }
+
+  Widget _buildIconButton({
+    required IconData icon,
+    required String tooltip,
+    required VoidCallback onTap,
+  }) {
+    return Tooltip(
+      message: tooltip,
+      preferBelow: false,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          padding: const EdgeInsets.all(6),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(icon, size: 20, color: Colors.white),
         ),
-      ],
+      ),
     );
   }
 
