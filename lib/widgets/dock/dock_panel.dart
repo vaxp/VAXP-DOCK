@@ -4,6 +4,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:vaxp_core/models/desktop_entry.dart';
 import '../../models/running_app.dart';
 import 'dock_icon.dart';
+import 'venom_dock_item.dart';
 
 class DockPanel extends StatefulWidget {
   final Function(DesktopEntry) onLaunch;
@@ -15,7 +16,7 @@ class DockPanel extends StatefulWidget {
   final Function(String) onUnpin;
   final Function(int pid)? onFocusApp;
   final Function(int oldIndex, int newIndex)? onReorder;
-  
+
   const DockPanel({
     super.key,
     required this.onLaunch,
@@ -34,9 +35,13 @@ class DockPanel extends StatefulWidget {
 }
 
 class _DockPanelState extends State<DockPanel> {
-  Widget _buildDockIcon(DesktopEntry entry, {bool isRunning = false, int? pid}) {
+  Widget _buildDockIcon(
+    DesktopEntry entry, {
+    bool isRunning = false,
+    int? pid,
+  }) {
     Widget iconWidget;
-    
+
     if (entry.iconPath != null) {
       if (entry.isSvgIcon) {
         iconWidget = DockIcon(
@@ -81,13 +86,27 @@ class _DockPanelState extends State<DockPanel> {
       );
     }
 
+    // Wrap with VenomDockItem for neon effect on running apps
+    Widget finalWidget = iconWidget;
+    if (isRunning) {
+      finalWidget = VenomDockItem(
+        isFocused: true,
+        onTap: () {
+          if (pid != null && widget.onFocusApp != null) {
+            widget.onFocusApp!(pid);
+          }
+        },
+        child: iconWidget,
+      );
+    }
+
     // Wrap with context menu and running indicator
     return GestureDetector(
       onSecondaryTapUp: (details) => _showDockIconMenu(context, details, entry),
       child: Stack(
         alignment: Alignment.bottomCenter,
         children: [
-          iconWidget,
+          finalWidget,
           if (isRunning)
             Positioned(
               bottom: 2,
@@ -112,16 +131,18 @@ class _DockPanelState extends State<DockPanel> {
     );
   }
 
-  void _showDockIconMenu(BuildContext context, TapUpDetails details, DesktopEntry entry) {
-    final RenderBox overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
+  void _showDockIconMenu(
+    BuildContext context,
+    TapUpDetails details,
+    DesktopEntry entry,
+  ) {
+    final RenderBox overlay =
+        Overlay.of(context).context.findRenderObject() as RenderBox;
     final position = RelativeRect.fromRect(
-      Rect.fromPoints(
-        details.globalPosition,
-        details.globalPosition,
-      ),
+      Rect.fromPoints(details.globalPosition, details.globalPosition),
       Offset.zero & overlay.size,
     );
-    
+
     showMenu(
       context: context,
       position: position,
@@ -144,18 +165,23 @@ class _DockPanelState extends State<DockPanel> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 2),
             decoration: BoxDecoration(
-              color: const Color.fromARGB(255, 0, 0, 0).withAlpha((0.7 * 255).toInt()),
+              color: const Color.fromARGB(
+                255,
+                0,
+                0,
+                0,
+              ).withAlpha((0.7 * 255).toInt()),
               borderRadius: BorderRadius.circular(18),
-              border: Border.all(
-                width: 1,
-              ),
+              border: Border.all(width: 1),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 GestureDetector(
                   onSecondaryTapUp: (details) {
-                    final RenderBox overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
+                    final RenderBox overlay =
+                        Overlay.of(context).context.findRenderObject()
+                            as RenderBox;
                     final position = RelativeRect.fromRect(
                       Rect.fromPoints(
                         details.globalPosition,
@@ -180,21 +206,21 @@ class _DockPanelState extends State<DockPanel> {
                       ],
                     );
                   },
-                //   child: Image.asset(
-                //     'assets/logo.png',
-                //     width: 40,
-                //     height: 40,
-                //     fit: BoxFit.contain,
-                //   ),
-                // ),
 
-                child: DockIcon(
-                  customChild:  Image.asset(
-                    'assets/logo.png',
-                    width: 40,
-                    height: 40,
-                    fit: BoxFit.contain,
-                  ),
+                  //   child: Image.asset(
+                  //     'assets/logo.png',
+                  //     width: 40,
+                  //     height: 40,
+                  //     fit: BoxFit.contain,
+                  //   ),
+                  // ),
+                  child: DockIcon(
+                    customChild: Image.asset(
+                      'assets/logo.png',
+                      width: 40,
+                      height: 40,
+                      fit: BoxFit.contain,
+                    ),
                     // icon: Icons.apps,
                     tooltip: 'Show all apps',
                     onTap: widget.onShowLauncher,
@@ -215,7 +241,7 @@ class _DockPanelState extends State<DockPanel> {
                   builder: (context) {
                     // Create a combined list: pinned apps with running status
                     final List<_DockItem> dockItems = [];
-                    
+
                     // Add pinned apps
                     for (int i = 0; i < widget.pinnedApps.length; i++) {
                       final pinned = widget.pinnedApps[i];
@@ -224,73 +250,100 @@ class _DockPanelState extends State<DockPanel> {
                         (r) => r.name == pinned.name,
                         orElse: () => RunningApp(name: '', pid: -1),
                       );
-                      dockItems.add(_DockItem(
-                        entry: pinned,
-                        isPinned: true,
-                        isRunning: running.pid != -1,
-                        pid: running.pid != -1 ? running.pid : null,
-                        pinnedIndex: i,
-                      ));
+                      dockItems.add(
+                        _DockItem(
+                          entry: pinned,
+                          isPinned: true,
+                          isRunning: running.pid != -1,
+                          pid: running.pid != -1 ? running.pid : null,
+                          pinnedIndex: i,
+                        ),
+                      );
                     }
-                    
+
                     // Add running apps that are not pinned
                     for (final running in widget.runningApps) {
-                      final isPinned = widget.pinnedApps.any((p) => p.name == running.name);
+                      final isPinned = widget.pinnedApps.any(
+                        (p) => p.name == running.name,
+                      );
                       if (!isPinned) {
-                        dockItems.add(_DockItem(
-                          entry: running.toDesktopEntry(),
-                          isPinned: false,
-                          isRunning: true,
-                          pid: running.pid,
-                          pinnedIndex: null,
-                        ));
+                        dockItems.add(
+                          _DockItem(
+                            entry: running.toDesktopEntry(),
+                            isPinned: false,
+                            isRunning: true,
+                            pid: running.pid,
+                            pinnedIndex: null,
+                          ),
+                        );
                       }
                     }
-                    
+
                     if (dockItems.isEmpty) {
                       return const SizedBox.shrink();
                     }
-                    
+
                     return Row(
                       mainAxisSize: MainAxisSize.min,
                       children: dockItems.asMap().entries.expand((itemEntry) {
                         final item = itemEntry.value;
                         final index = itemEntry.key;
                         final widgets = <Widget>[];
-                        
+
                         if (item.isPinned && item.pinnedIndex != null) {
                           // Draggable pinned app
-                          final pinnedIdx = item.pinnedIndex!; // Non-null assertion is safe here
+                          final pinnedIdx = item
+                              .pinnedIndex!; // Non-null assertion is safe here
                           widgets.add(
                             Draggable<int>(
                               data: pinnedIdx,
                               feedback: Material(
                                 color: Colors.transparent,
-                                child: _buildDockIcon(item.entry, isRunning: item.isRunning, pid: item.pid),
+                                child: _buildDockIcon(
+                                  item.entry,
+                                  isRunning: item.isRunning,
+                                  pid: item.pid,
+                                ),
                               ),
                               childWhenDragging: Opacity(
                                 opacity: 0.3,
-                                child: _buildDockIcon(item.entry, isRunning: item.isRunning, pid: item.pid),
+                                child: _buildDockIcon(
+                                  item.entry,
+                                  isRunning: item.isRunning,
+                                  pid: item.pid,
+                                ),
                               ),
                               child: DragTarget<int>(
-                                onWillAcceptWithDetails: (details) => 
+                                onWillAcceptWithDetails: (details) =>
                                     details.data != pinnedIdx,
                                 onAcceptWithDetails: (details) {
-                                  widget.onReorder?.call(details.data, pinnedIdx);
+                                  widget.onReorder?.call(
+                                    details.data,
+                                    pinnedIdx,
+                                  );
                                 },
-                                builder: (context, candidateData, rejectedData) {
-                                  return _buildDockIcon(item.entry, isRunning: item.isRunning, pid: item.pid);
-                                },
+                                builder:
+                                    (context, candidateData, rejectedData) {
+                                      return _buildDockIcon(
+                                        item.entry,
+                                        isRunning: item.isRunning,
+                                        pid: item.pid,
+                                      );
+                                    },
                               ),
                             ),
                           );
                         } else {
                           // Non-draggable running app
                           widgets.add(
-                            _buildDockIcon(item.entry, isRunning: item.isRunning, pid: item.pid),
+                            _buildDockIcon(
+                              item.entry,
+                              isRunning: item.isRunning,
+                              pid: item.pid,
+                            ),
                           );
                         }
-                        
+
                         // Add spacer between items
                         if (index < dockItems.length - 1) {
                           widgets.add(
@@ -301,7 +354,7 @@ class _DockPanelState extends State<DockPanel> {
                             ),
                           );
                         }
-                        
+
                         return widgets;
                       }).toList(),
                     );
@@ -324,12 +377,17 @@ class _DockPanelState extends State<DockPanel> {
                   tooltip: 'Downloads',
                   onTap: () async {
                     try {
-                      await Process.start('/bin/sh', ['-c', 'xdg-open ~/Downloads']);
+                      await Process.start('/bin/sh', [
+                        '-c',
+                        'xdg-open ~/Downloads',
+                      ]);
                     } catch (e) {
                       if (!mounted) return;
                       // ignore: use_build_context_synchronously
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Failed to open Downloads')),
+                        const SnackBar(
+                          content: Text('Failed to open Downloads'),
+                        ),
                       );
                     }
                   },
@@ -340,7 +398,10 @@ class _DockPanelState extends State<DockPanel> {
                   tooltip: 'Trash',
                   onTap: () async {
                     try {
-                      await Process.start('/bin/sh', ['-c', 'xdg-open trash://']);
+                      await Process.start('/bin/sh', [
+                        '-c',
+                        'xdg-open trash://',
+                      ]);
                     } catch (e) {
                       if (!mounted) return;
                       // ignore: use_build_context_synchronously
@@ -374,4 +435,4 @@ class _DockItem {
     this.pid,
     this.pinnedIndex,
   });
-}                     
+}
