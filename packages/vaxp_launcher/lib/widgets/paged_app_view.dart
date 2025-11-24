@@ -105,23 +105,13 @@ class _PagedAppViewState extends State<PagedAppView>
     return KeyEventResult.ignored;
   }
 
-  /// Calculate number of apps per page based on screen size
+  /// Calculate number of apps per page
+  /// Fixed layout: 4 rows × 6 columns = 24 apps per page
   int _getAppsPerPage(BuildContext context) {
-    final size = MediaQuery.of(context).size;
-    // Calculate grid dimensions
-    const itemWidth = 120.0;
-    const itemHeight = 140.0;
-    const spacing = 16.0;
-    const padding = 48.0;
-
-    final availableWidth = size.width - padding;
-    final availableHeight =
-        size.height - 300; // Reserve space for header and indicators
-
-    final columns = (availableWidth / (itemWidth + spacing)).floor();
-    final rows = (availableHeight / (itemHeight + spacing)).floor();
-
-    return (columns * rows).clamp(1, 100);
+    // Fixed grid: 4 rows × 6 columns
+    const rows = 4;
+    const columns = 6;
+    return rows * columns; // Always 24 apps per page
   }
 
   /// Split apps into pages
@@ -174,13 +164,16 @@ class _PagedAppViewState extends State<PagedAppView>
                         animation: _animationController,
                         builder: (context, child) {
                           return GridView.builder(
-                            padding: const EdgeInsets.all(24),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 200,
+                              vertical: 44,
+                            ),
                             gridDelegate:
-                                const SliverGridDelegateWithMaxCrossAxisExtent(
-                                  maxCrossAxisExtent: 120,
-                                  childAspectRatio: 0.85,
-                                  crossAxisSpacing: 16,
-                                  mainAxisSpacing: 16,
+                                const SliverGridDelegateWithFixedCrossAxisCount(
+                                  crossAxisCount: 6, // Fixed 6 columns
+                                  childAspectRatio: 1.4,
+                                  crossAxisSpacing: 1,
+                                  mainAxisSpacing: 1,
                                 ),
                             itemCount: pages[pageIndex].length,
                             itemBuilder: (context, index) {
