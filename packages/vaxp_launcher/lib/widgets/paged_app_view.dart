@@ -163,10 +163,16 @@ class _PagedAppViewState extends State<PagedAppView>
                       return AnimatedBuilder(
                         animation: _animationController,
                         builder: (context, child) {
+                          final size = MediaQuery.of(context).size;
                           return GridView.builder(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 350,
-                              vertical: 44,
+                            padding: EdgeInsets.symmetric(
+                              // اجعلها 18% لكن لا تقل عن 20 بكسل ولا تزيد عن 400 بكسل
+                              
+                              horizontal: (size.width * 0.18).clamp(
+                                20.0,
+                                400.0,
+                              ),
+                              vertical: (size.height * 0.04).clamp(10.0, 60.0),
                             ),
                             gridDelegate:
                                 const SliverGridDelegateWithFixedCrossAxisCount(
