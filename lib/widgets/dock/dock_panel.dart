@@ -142,10 +142,10 @@ class _DockPanelState extends State<DockPanel> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 2),
             decoration: BoxDecoration(
-              color: Colors.black.withAlpha((0.3 * 255).toInt()),
-              borderRadius: BorderRadius.circular(6),
+              color: const Color.fromARGB(255, 0, 0, 0).withAlpha((0.7 * 255).toInt()),
+              borderRadius: BorderRadius.circular(18),
               border: Border.all(
                 width: 1,
               ),
@@ -181,7 +181,7 @@ class _DockPanelState extends State<DockPanel> {
                     );
                   },
                   child: DockIcon(
-                    icon: Icons.apps_sharp,
+                    icon: Icons.apps,
                     tooltip: 'Show all apps',
                     onTap: widget.onShowLauncher,
                   ),

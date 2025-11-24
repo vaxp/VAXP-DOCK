@@ -131,7 +131,7 @@ class DesktopEntry {
 
           entries.add(
             DesktopEntry(
-              name: name!,
+              name: name,
               exec: exec,
               iconPath: resolvedIconPath,
               isSvgIcon: resolvedIconPath?.toLowerCase().endsWith('.svg') ?? false,
