@@ -1,5 +1,7 @@
 import 'dart:io';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:vaxp_core/models/desktop_entry.dart';
 
@@ -34,6 +36,7 @@ class _PagedAppViewState extends State<PagedAppView>
     with SingleTickerProviderStateMixin {
   late PageController _pageController;
   late AnimationController _animationController;
+  late FocusNode _focusNode;
   int _currentPage = 0;
 
   @override
@@ -44,6 +47,11 @@ class _PagedAppViewState extends State<PagedAppView>
       vsync: this,
       duration: const Duration(milliseconds: 800),
     )..forward();
+    _focusNode = FocusNode();
+    // Auto-focus to enable keyboard navigation
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _focusNode.requestFocus();
+    });
   }
 
   @override
@@ -59,7 +67,42 @@ class _PagedAppViewState extends State<PagedAppView>
   void dispose() {
     _pageController.dispose();
     _animationController.dispose();
+    _focusNode.dispose();
     super.dispose();
+  }
+
+  /// Navigate to next page
+  void _nextPage() {
+    if (_currentPage < _getPages(context).length - 1) {
+      _pageController.nextPage(
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+      );
+    }
+  }
+
+  /// Navigate to previous page
+  void _previousPage() {
+    if (_currentPage > 0) {
+      _pageController.previousPage(
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+      );
+    }
+  }
+
+  /// Handle keyboard events
+  KeyEventResult _handleKeyEvent(FocusNode node, KeyEvent event) {
+    if (event is KeyDownEvent) {
+      if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
+        _nextPage();
+        return KeyEventResult.handled;
+      } else if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
+        _previousPage();
+        return KeyEventResult.handled;
+      }
+    }
+    return KeyEventResult.ignored;
   }
 
   /// Calculate number of apps per page based on screen size
@@ -98,120 +141,205 @@ class _PagedAppViewState extends State<PagedAppView>
   Widget build(BuildContext context) {
     final pages = _getPages(context);
 
-    return Column(
-      children: [
-        // PageView with apps
-        Expanded(
-          child: PageView.builder(
-            controller: _pageController,
-            onPageChanged: (index) {
-              setState(() {
-                _currentPage = index;
-              });
-            },
-            itemCount: pages.length,
-            itemBuilder: (context, pageIndex) {
-              return AnimatedBuilder(
-                animation: _animationController,
-                builder: (context, child) {
-                  return GridView.builder(
-                    padding: const EdgeInsets.all(24),
-                    gridDelegate:
-                        const SliverGridDelegateWithMaxCrossAxisExtent(
-                          maxCrossAxisExtent: 120,
-                          childAspectRatio: 0.85,
-                          crossAxisSpacing: 16,
-                          mainAxisSpacing: 16,
-                        ),
-                    itemCount: pages[pageIndex].length,
-                    itemBuilder: (context, index) {
-                      final app = pages[pageIndex][index];
+    return Focus(
+      focusNode: _focusNode,
+      onKeyEvent: _handleKeyEvent,
+      child: Listener(
+        // Handle mouse scroll
+        onPointerSignal: (pointerSignal) {
+          if (pointerSignal is PointerScrollEvent) {
+            if (pointerSignal.scrollDelta.dy > 0) {
+              _nextPage();
+            } else if (pointerSignal.scrollDelta.dy < 0) {
+              _previousPage();
+            }
+          }
+        },
+        child: Stack(
+          children: [
+            Column(
+              children: [
+                // PageView with apps
+                Expanded(
+                  child: PageView.builder(
+                    controller: _pageController,
+                    onPageChanged: (index) {
+                      setState(() {
+                        _currentPage = index;
+                      });
+                    },
+                    itemCount: pages.length,
+                    itemBuilder: (context, pageIndex) {
+                      return AnimatedBuilder(
+                        animation: _animationController,
+                        builder: (context, child) {
+                          return GridView.builder(
+                            padding: const EdgeInsets.all(24),
+                            gridDelegate:
+                                const SliverGridDelegateWithMaxCrossAxisExtent(
+                                  maxCrossAxisExtent: 120,
+                                  childAspectRatio: 0.85,
+                                  crossAxisSpacing: 16,
+                                  mainAxisSpacing: 16,
+                                ),
+                            itemCount: pages[pageIndex].length,
+                            itemBuilder: (context, index) {
+                              final app = pages[pageIndex][index];
 
-                      // Staggered animation calculation
-                      final double animationStart = (index * 0.02).clamp(
-                        0.0,
-                        0.8,
-                      );
-                      final double animationEnd = (animationStart + 0.4).clamp(
-                        0.0,
-                        1.0,
-                      );
+                              // Staggered animation calculation
+                              final double animationStart = (index * 0.02)
+                                  .clamp(0.0, 0.8);
+                              final double animationEnd = (animationStart + 0.4)
+                                  .clamp(0.0, 1.0);
 
-                      final Animation<double> opacity =
-                          Tween<double>(begin: 0.0, end: 1.0).animate(
-                            CurvedAnimation(
-                              parent: _animationController,
-                              curve: Interval(
-                                animationStart,
-                                animationEnd,
-                                curve: Curves.easeOut,
-                              ),
-                            ),
+                              final Animation<double> opacity =
+                                  Tween<double>(begin: 0.0, end: 1.0).animate(
+                                    CurvedAnimation(
+                                      parent: _animationController,
+                                      curve: Interval(
+                                        animationStart,
+                                        animationEnd,
+                                        curve: Curves.easeOut,
+                                      ),
+                                    ),
+                                  );
+
+                              final Animation<double> scale =
+                                  Tween<double>(begin: 0.8, end: 1.0).animate(
+                                    CurvedAnimation(
+                                      parent: _animationController,
+                                      curve: Interval(
+                                        animationStart,
+                                        animationEnd,
+                                        curve: Curves.easeOutBack,
+                                      ),
+                                    ),
+                                  );
+
+                              return FadeTransition(
+                                opacity: opacity,
+                                child: ScaleTransition(
+                                  scale: scale,
+                                  child: _AppGridItem(
+                                    app: app,
+                                    isRunning: widget.runningAppNames.contains(
+                                      app.name,
+                                    ),
+                                    onLaunch: () => widget.onLaunch(app),
+                                    onPin: () => widget.onPin(app),
+                                    onInstall: () => widget.onInstall(app),
+                                    onCreateShortcut: () =>
+                                        widget.onCreateShortcut(app),
+                                    onLaunchWithExternalGPU: () =>
+                                        widget.onLaunchWithExternalGPU(app),
+                                  ),
+                                ),
+                              );
+                            },
                           );
-
-                      final Animation<double> scale =
-                          Tween<double>(begin: 0.8, end: 1.0).animate(
-                            CurvedAnimation(
-                              parent: _animationController,
-                              curve: Interval(
-                                animationStart,
-                                animationEnd,
-                                curve: Curves.easeOutBack,
-                              ),
-                            ),
-                          );
-
-                      return FadeTransition(
-                        opacity: opacity,
-                        child: ScaleTransition(
-                          scale: scale,
-                          child: _AppGridItem(
-                            app: app,
-                            isRunning: widget.runningAppNames.contains(
-                              app.name,
-                            ),
-                            onLaunch: () => widget.onLaunch(app),
-                            onPin: () => widget.onPin(app),
-                            onInstall: () => widget.onInstall(app),
-                            onCreateShortcut: () =>
-                                widget.onCreateShortcut(app),
-                            onLaunchWithExternalGPU: () =>
-                                widget.onLaunchWithExternalGPU(app),
-                          ),
-                        ),
+                        },
                       );
                     },
-                  );
-                },
-              );
-            },
-          ),
-        ),
-
-        // Page indicators
-        if (pages.length > 1)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 24.0),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: List.generate(
-                pages.length,
-                (index) => AnimatedContainer(
-                  duration: const Duration(milliseconds: 300),
-                  margin: const EdgeInsets.symmetric(horizontal: 4),
-                  width: _currentPage == index ? 24 : 8,
-                  height: 8,
-                  decoration: BoxDecoration(
-                    color: _currentPage == index
-                        ? Colors.white
-                        : Colors.white.withOpacity(0.3),
-                    borderRadius: BorderRadius.circular(4),
                   ),
                 ),
-              ),
+
+                // Page indicators
+                if (pages.length > 1)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 24.0),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: List.generate(
+                        pages.length,
+                        (index) => AnimatedContainer(
+                          duration: const Duration(milliseconds: 300),
+                          margin: const EdgeInsets.symmetric(horizontal: 4),
+                          width: _currentPage == index ? 24 : 8,
+                          height: 8,
+                          decoration: BoxDecoration(
+                            color: _currentPage == index
+                                ? Colors.white
+                                : Colors.white.withOpacity(0.3),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
             ),
-          ),
-      ],
+
+            // Navigation buttons (left and right arrows)
+            if (pages.length > 1) ...[
+              // Left arrow
+              if (_currentPage > 0)
+                Positioned(
+                  left: 16,
+                  top: 0,
+                  bottom: 80,
+                  child: Center(
+                    child: MouseRegion(
+                      cursor: SystemMouseCursors.click,
+                      child: GestureDetector(
+                        onTap: _previousPage,
+                        child: Container(
+                          width: 48,
+                          height: 48,
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.1),
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: Colors.white.withOpacity(0.3),
+                              width: 1,
+                            ),
+                          ),
+                          child: const Icon(
+                            Icons.arrow_back_ios_new,
+                            color: Colors.white,
+                            size: 24,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+
+              // Right arrow
+              if (_currentPage < pages.length - 1)
+                Positioned(
+                  right: 16,
+                  top: 0,
+                  bottom: 80,
+                  child: Center(
+                    child: MouseRegion(
+                      cursor: SystemMouseCursors.click,
+                      child: GestureDetector(
+                        onTap: _nextPage,
+                        child: Container(
+                          width: 48,
+                          height: 48,
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.1),
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: Colors.white.withOpacity(0.3),
+                              width: 1,
+                            ),
+                          ),
+                          child: const Icon(
+                            Icons.arrow_forward_ios,
+                            color: Colors.white,
+                            size: 24,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ],
+        ),
+      ),
     );
   }
 }
