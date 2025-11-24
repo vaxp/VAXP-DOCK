@@ -26,7 +26,7 @@ class _AnimatedNeonBorderState extends State<AnimatedNeonBorder>
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 2),
+      duration: const Duration(seconds: 3),
     )..repeat();
   }
 
