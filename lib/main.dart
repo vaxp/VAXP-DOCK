@@ -324,10 +324,59 @@ class _DockHomeState extends State<DockHome> {
 
   /// Close a running application by its PID
   Future<void> _closeApp(int pid) async {
+    // Get the app name for fallback window finding
+    final runningApp = _runningApps[pid];
+    final appName = runningApp?.name;
+
     try {
-      // استخدام kill -9 لإغلاق التطبيق بالقوة
+      // Try wmctrl first (more reliable for window management)
+      final wmctrlResult = await Process.run('which', ['wmctrl']);
+      if (wmctrlResult.exitCode == 0) {
+        // Find window by PID
+        final findResult = await Process.run('wmctrl', ['-l', '-p']);
+        if (findResult.exitCode == 0) {
+          final lines = (findResult.stdout as String).split('\n');
+          String? windowId;
+
+          // First try to find by PID
+          for (final line in lines) {
+            if (line.contains(' $pid ')) {
+              final parts = line.split(RegExp(r'\s+'));
+              if (parts.isNotEmpty) {
+                windowId = parts[0];
+                break;
+              }
+            }
+          }
+
+          // If not found by PID and we have app name, try by name
+          if (windowId == null && appName != null) {
+            for (final line in lines) {
+              // Check if window title contains app name (case insensitive)
+              final titleStart = line.indexOf('  ') + 2;
+              if (titleStart > 1 && titleStart < line.length) {
+                final title = line.substring(titleStart);
+                if (title.toLowerCase().contains(appName.toLowerCase())) {
+                  final parts = line.split(RegExp(r'\s+'));
+                  if (parts.isNotEmpty) {
+                    windowId = parts[0];
+                    break;
+                  }
+                }
+              }
+            }
+          }
+
+          if (windowId != null) {
+            // Close the window gracefully
+            await Process.run('wmctrl', ['-i', '-c', windowId]);
+            return;
+          }
+        }
+      }
+
+      // Fallback: use kill -9 if wmctrl failed or window not found
       await Process.run('kill', ['-9', pid.toString()]);
-      // The app will be automatically removed from _runningApps via _checkRunningProcesses
     } catch (e) {
       debugPrint('Failed to close app with PID $pid: $e');
     }
