@@ -167,7 +167,6 @@ class _PagedAppViewState extends State<PagedAppView>
                           return GridView.builder(
                             padding: EdgeInsets.symmetric(
                               // اجعلها 18% لكن لا تقل عن 20 بكسل ولا تزيد عن 400 بكسل
-                              
                               horizontal: (size.width * 0.18).clamp(
                                 20.0,
                                 400.0,
@@ -177,7 +176,7 @@ class _PagedAppViewState extends State<PagedAppView>
                             gridDelegate:
                                 const SliverGridDelegateWithFixedCrossAxisCount(
                                   crossAxisCount: 6, // Fixed 6 columns
-                                  childAspectRatio: 1,
+                                  childAspectRatio: 1.2,
                                   crossAxisSpacing: 1,
                                   mainAxisSpacing: 1,
                                 ),
@@ -551,24 +550,24 @@ class _AppGridItemState extends State<_AppGridItem> {
       if (widget.app.iconPath!.endsWith('.svg')) {
         return SvgPicture.file(
           File(widget.app.iconPath!),
-          width: 96,
-          height: 96,
+          width: 64,
+          height: 64,
           placeholderBuilder: (_) =>
-              const Icon(Icons.apps, color: Colors.white54, size: 72),
+              const Icon(Icons.apps, color: Colors.white54, size: 64),
         );
       } else {
         return Image.file(
           File(widget.app.iconPath!),
-          width: 96,
-          height: 96,
-          cacheWidth: 96,
-          cacheHeight: 96,
+          width: 64,
+          height: 64,
+          cacheWidth: 64,
+          cacheHeight: 64,
           gaplessPlayback: true,
           errorBuilder: (_, __, ___) =>
-              const Icon(Icons.apps, color: Colors.white54, size: 72),
+              const Icon(Icons.apps, color: Colors.white54, size: 64),
         );
       }
     }
-    return const Icon(Icons.apps, color: Colors.white54, size: 72);
+    return const Icon(Icons.apps, color: Colors.white54, size: 64);
   }
 }

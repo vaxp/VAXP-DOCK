@@ -43,21 +43,8 @@ class IconThemeService {
   }
 
   String? resolveIcon(DesktopEntry entry) {
-    // 1. Check if entry has an absolute path icon
-    if (entry.iconPath != null && File(entry.iconPath!).existsSync()) {
-      return entry.iconPath;
-    }
-
-    // 2. Look up in our theme cache
+    // 1. Look up in our theme cache FIRST
     if (_currentThemePath != null) {
-      // Try exact match first
-      if (entry.iconPath != null) {
-        final iconName = entry.iconPath!.toLowerCase();
-        if (_iconCache.containsKey(iconName)) {
-          return _iconCache[iconName];
-        }
-      }
-
       // Try app name variations
       final name = entry.name.toLowerCase();
       final variations = [
@@ -72,6 +59,29 @@ class IconThemeService {
           return _iconCache[v];
         }
       }
+
+      // Try exact match on icon name/path
+      if (entry.iconPath != null) {
+        final filename = entry.iconPath!
+            .split(Platform.pathSeparator)
+            .last
+            .toLowerCase();
+        final nameWithoutExt = filename.lastIndexOf('.') > 0
+            ? filename.substring(0, filename.lastIndexOf('.'))
+            : filename;
+
+        if (_iconCache.containsKey(nameWithoutExt)) {
+          return _iconCache[nameWithoutExt];
+        }
+        if (_iconCache.containsKey(filename)) {
+          return _iconCache[filename];
+        }
+      }
+    }
+
+    // 2. Fallback: Check if entry has an absolute path icon that exists
+    if (entry.iconPath != null && File(entry.iconPath!).existsSync()) {
+      return entry.iconPath;
     }
 
     return null;

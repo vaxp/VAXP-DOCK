@@ -7,7 +7,7 @@ void main() async {
 
   // Optimize memory usage
   PaintingBinding.instance.imageCache.maximumSizeBytes =
-      1024 * 1024 * 50; // 50 MB
+      1024 * 1024 * 20; // 100 MB
 
   await windowManager.ensureInitialized();
   runApp(const LauncherApp());
