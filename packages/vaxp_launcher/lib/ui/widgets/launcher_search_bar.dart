@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../core/enums/view_mode.dart';
+import 'animated_neon_border.dart';
 
 class LauncherSearchBar extends StatelessWidget {
   const LauncherSearchBar({
@@ -27,43 +28,45 @@ class LauncherSearchBar extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           SizedBox(width: MediaQuery.of(context).size.width / 2.5),
-          Container(
-            alignment: Alignment.center,
-            width: MediaQuery.of(context).size.width / 5,
-            height: 48,
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.08),
-              borderRadius: BorderRadius.circular(14),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.35),
-                  blurRadius: 22,
-                  spreadRadius: -12,
-                  offset: const Offset(0, 18),
-                ),
-                BoxShadow(
-                  color: Colors.white.withOpacity(0.08),
-                  blurRadius: 10,
-                  spreadRadius: -8,
-                  offset: const Offset(-6, -6),
-                ),
-              ],
-            ),
-            child: TextField(
-              controller: controller,
-              onChanged: onChanged,
-              onSubmitted: onSubmitted,
-              textInputAction: TextInputAction.search,
-              decoration: InputDecoration(
-                hintText: 'Search applications...',
-                prefixIcon: const Icon(Icons.search),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                filled: true,
-                fillColor: Colors.white.withOpacity(0.04),
+          AnimatedNeonBorder(
+            borderRadius: 14,
+            borderWidth: 3.0,
+            child: Container(
+              alignment: Alignment.center,
+              width: MediaQuery.of(context).size.width / 5,
+              height: 48,
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.08),
+                borderRadius: BorderRadius.circular(14),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.35),
+                    blurRadius: 22,
+                    spreadRadius: -12,
+                    offset: const Offset(0, 18),
+                  ),
+                  BoxShadow(
+                    color: Colors.white.withOpacity(0.08),
+                    blurRadius: 10,
+                    spreadRadius: -8,
+                    offset: const Offset(-6, -6),
+                  ),
+                ],
               ),
-              style: const TextStyle(color: Colors.white),
+              child: TextField(
+                controller: controller,
+                onChanged: onChanged,
+                onSubmitted: onSubmitted,
+                textInputAction: TextInputAction.search,
+                decoration: InputDecoration(
+                  hintText: 'Search applications...',
+                  prefixIcon: const Icon(Icons.search),
+                  border: InputBorder.none,
+                  filled: true,
+                  fillColor: Colors.transparent,
+                ),
+                style: const TextStyle(color: Colors.white),
+              ),
             ),
           ),
           const SizedBox(width: 12),

@@ -57,6 +57,7 @@ class DockHome extends StatefulWidget {
 class _DockHomeState extends State<DockHome> {
   String? _backgroundImagePath;
   List<DesktopEntry> _pinnedApps = [];
+  // ignore: prefer_final_fields
   Map<int, RunningApp> _runningApps = {}; // PID -> RunningApp
   bool _launcherVisible = false;
   bool _launcherMinimized = false;

@@ -10,6 +10,7 @@ import 'controllers/launcher_controller.dart';
 import 'widgets/launcher_search_bar.dart';
 import 'widgets/workspace_selector.dart';
 import 'widgets/launcher_settings_dialog.dart';
+import 'widgets/animated_neon_border.dart';
 
 class LauncherHome extends StatefulWidget {
   const LauncherHome({super.key});
@@ -95,11 +96,13 @@ class _LauncherHomeState extends State<LauncherHome> {
               Row(
                 children: [
                   Expanded(
-                    child: WorkspaceSelector(
-                      workspaces: _controller.workspaces,
-                      hoveredWorkspace: _controller.hoveredWorkspace,
-                      onWorkspaceHover: _controller.setHoveredWorkspace,
-                      onWorkspaceTap: _controller.switchToWorkspace,
+                    child: AnimatedNeonBorder(
+                      child: WorkspaceSelector(
+                        workspaces: _controller.workspaces,
+                        hoveredWorkspace: _controller.hoveredWorkspace,
+                        onWorkspaceHover: _controller.setHoveredWorkspace,
+                        onWorkspaceTap: _controller.switchToWorkspace,
+                      ),
                     ),
                   ),
                   Padding(
@@ -107,15 +110,21 @@ class _LauncherHomeState extends State<LauncherHome> {
                     child: SizedBox(
                       height: 200,
                       width: MediaQuery.of(context).size.width / 5,
-                      child: BlocProvider<SystemStatsCubit>(
-                        create: (_) =>
-                            SystemStatsCubit(SystemStatsRepository()),
-                        child: SystemStatsGrid(),
+                      child: AnimatedNeonBorder(
+                        child: BlocProvider<SystemStatsCubit>(
+                          create: (_) =>
+                              SystemStatsCubit(SystemStatsRepository()),
+                          child: SystemStatsGrid(),
+                        ),
                       ),
                     ),
                   ),
                   // Control Center next to workspaces
-                  SizedBox(height: 200, width: 800, child: ControlCenterPage()),
+                  SizedBox(
+                    height: 200,
+                    width: 800,
+                    child: AnimatedNeonBorder(child: ControlCenterPage()),
+                  ),
                 ],
               ),
 

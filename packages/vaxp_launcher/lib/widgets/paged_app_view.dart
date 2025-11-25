@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:vaxp_core/models/desktop_entry.dart';
+import '../ui/widgets/neon_app_item.dart';
 
 /// Widget for displaying apps in a paged view with page indicators
 class PagedAppView extends StatefulWidget {
@@ -471,47 +472,27 @@ class _AppGridItemState extends State<_AppGridItem> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Stack(
-                alignment: Alignment.center,
-                children: [
-                  Container(
-                    width: 96,
-                    height: 96,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      boxShadow: _isHovered
-                          ? [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.3),
-                                blurRadius: 12,
-                                spreadRadius: 2,
-                                offset: const Offset(0, 4),
-                              ),
-                            ]
-                          : [],
-                    ),
-                    child: _buildIcon(),
-                  ),
-                  if (widget.isRunning)
-                    Positioned(
-                      bottom: -4,
-                      child: Container(
-                        width: 4,
-                        height: 4,
-                        decoration: const BoxDecoration(
-                          color: Colors.white,
-                          shape: BoxShape.circle,
-                          boxShadow: [
+              NeonAppItem(
+                isFocused: widget.isRunning,
+                onTap: widget.onLaunch,
+                child: Container(
+                  width: 96,
+                  height: 96,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    boxShadow: _isHovered
+                        ? [
                             BoxShadow(
-                              color: Colors.white,
-                              blurRadius: 4,
-                              spreadRadius: 1,
+                              color: Colors.black.withValues(alpha: 0.3),
+                              blurRadius: 12,
+                              spreadRadius: 2,
+                              offset: const Offset(0, 4),
                             ),
-                          ],
-                        ),
-                      ),
-                    ),
-                ],
+                          ]
+                        : [],
+                  ),
+                  child: _buildIcon(),
+                ),
               ),
               const SizedBox(height: 12),
               Padding(
